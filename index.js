@@ -155,8 +155,8 @@ HyperDB.prototype.put = function (key, val, signature, pub_key, opts, cb) { ////
 		const tokens = key.split('/');
 		const signer_token = (tokens.length > 0) ? tokens[0] : null;
 
-		//if(signer === pub_key){
-		//	if(signer_token === pub_key){
+		if(signer === pub_key){
+			if(signer_token === pub_key){
 				get(self, heads, key, function(err, results) {
 					if(results.length){
 						const existing_signature = results[0].signature;
@@ -173,12 +173,12 @@ HyperDB.prototype.put = function (key, val, signature, pub_key, opts, cb) { ////
 				});
 				//put(self, clock, heads, key, val, opts, unlock)
 				//put(self, clock, heads, key, val, signature, pub_key, opts, unlock)
-			//}else{
-			//	return unlock('REJECTED: key token does not match the public key and therefor access is restricted');
-			//}
-		//}else{
-		//	return unlock('REJECTED: signer does not match address and therefore does not have access to this record');
-		//}
+			}else{
+				return unlock('REJECTED: key token does not match the public key and therefor access is restricted');
+			}
+		}else{
+			return unlock('REJECTED: signer does not match address and therefore does not have access to this record');
+		}
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     })
 
