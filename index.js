@@ -119,8 +119,8 @@ AODB.prototype.batch = function (batch, cb) {
 
 				var next = batch[i++]
 				var signer = EthCrypto.recoverPublicKey(next.signature, EthCrypto.hash.keccak256(next.value));
-				var tokens = next.key.split('/');
-				var signerToken = (tokens.length > 0) ? tokens[1] : null;
+				var tokens = normalizeKey(next.key).split('/');
+				var signerToken = (tokens.length > 0) ? tokens[0] : null;
 
 				// Validate the signature
 				if (signer === next.writerAddress && signerToken === next.writerAddress) {
