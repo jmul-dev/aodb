@@ -1,29 +1,31 @@
 message Entry {
-  required string key = 1;
-  optional bytes value = 2;
-  optional bool deleted = 3;
-  required bytes trie = 4;
-  repeated uint64 clock = 5;
-  optional uint64 inflate = 6;
-  required string signature = 7;
+	required string key = 1;
+	optional bytes value = 2;
+	optional bool deleted = 3;
+	required bytes trie = 4;
+	repeated uint64 clock = 5;
+	optional uint64 inflate = 6;
+	required string signature = 7;
+	required string writerAddress = 8;
 }
 
 message InflatedEntry {
-  message Feed {
-    required bytes key = 1;
-  }
+	message Feed {
+		required bytes key = 1;
+	}
 
-  required string key = 1;
-  optional bytes value = 2;
-  optional bool deleted = 3;
-  required bytes trie = 4;
-  repeated uint64 clock = 5;
-  optional uint64 inflate = 6;
-  repeated Feed feeds = 7;
-  optional bytes contentFeed = 8;
-  required string signature = 9;
+	required string key = 1;
+	optional bytes value = 2;
+	optional bool deleted = 3;
+	required bytes trie = 4;
+	repeated uint64 clock = 5;
+	optional uint64 inflate = 6;
+	repeated Feed feeds = 7;
+	optional bytes contentFeed = 8;
+	required string signature = 9;
+	required string writerAddress = 10;
 }
 
 message Header {
-  required string protocol = 1;
+	required string protocol = 1;
 }

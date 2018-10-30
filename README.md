@@ -1,9 +1,9 @@
-# hyperdb
+# aodb
 
-Distributed scalable database.
+aodb is a fork of [HyperDB](https://github.com/mafintosh/hyperdb), a distributed scalable database with signature authentication and node validation on key writes.
 
 ```
-npm install hyperdb
+npm install aodb
 ```
 
 Read [ARCHITECTURE.md](ARCHITECTURE.md) for details on how hyperdb works.
@@ -11,43 +11,49 @@ Read [ARCHITECTURE.md](ARCHITECTURE.md) for details on how hyperdb works.
 ## Usage
 
 ``` js
-var hyperdb = require('hyperdb')
+var aodb = require('aodb')
+var EthCrypto = require('eth-crypto');
+var identity = EthCrypto.createIdentity();
 
-var db = hyperdb('./my.db', {valueEncoding: 'utf-8'})
+var db = aodb('./my.db', {valueEncoding: 'utf-8'})
 
-db.put('/hello', 'world', function (err) {
-  if (err) throw err
-  db.get('/hello', function (err, nodes) {
-    if (err) throw err
-    console.log('/hello --> ' + nodes[0].value)
-  })
+var key = '/' + identity.publicKey + '/hello';
+var value = 'world';
+var signature = EthCrypto.sign(identity.privateKey, EthCrypto.hash.keccak256(value));
+
+db.put(key, value, signature, identity.publicKey, function (err) {
+	if (err) throw err
+	db.get(key, function (err, node) {
+		if (err) throw err
+		console.log(key + ' --> ' + node.value)
+	})
 })
 ```
 
 ## API
 
-#### `var db = hyperdb(storage, [key], [options])`
+#### `var db = aodb(storage, [key], [options])`
 
-Create a new hyperdb.
+Create a new aodb.
 
 `storage` can be a string or a function. If a string like the above example, the
 [random-access-file](https://github.com/mafintosh/random-access-file) storage
 module is used; the resulting folder with the data will be whatever `storage` is
 set to.
 
-If `storage` is a function, it will be called with every filename hyperdb needs
+If `storage` is a function, it will be called with every filename aodb needs
 to operate on. There are many providers for the
 [abstract-random-access](https://github.com/juliangruber/abstract-random-access)
 interface. e.g.
 
 ```js
 var ram = require('random-access-memory')
-var feed = hyperdb(function (filename) {
-  // filename will be one of: data, bitfield, tree, signatures, key, secret_key
-  // the data file will contain all your data concattenated.
+var feed = aodb(function (filename) {
+	// filename will be one of: data, bitfield, tree, signatures, key, secret_key
+	// the data file will contain all your data concattenated.
 
-  // just store all files in ram by returning a random-access-memory instance
-  return ram()
+	// just store all files in ram by returning a random-access-memory instance
+	return ram()
 })
 ```
 
@@ -59,23 +65,23 @@ Options include:
 
 ```js
 {
-  map: node => mappedNode, // map nodes before returning them
-  reduce: (a, b) => someNode, // reduce the nodes array before returning it
-  firstNode: false, // set to true to reduce the nodes array to the first node in it
-  valueEncoding: 'binary' // set the value encoding of the db
+    map: node => mappedNode, // map nodes before returning them
+	reduce: (a, b) => someNode, // reduce the nodes array before returning it
+	firstNode: false, // set to true to reduce the nodes array to the first node in it
+	valueEncoding: 'binary' // set the value encoding of the db
 }
 ```
 
 #### `db.key`
 
-Buffer containing the public key identifying this hyperdb.
+Buffer containing the public key identifying this aodb.
 
 Populated after `ready` has been emitted. May be `null` before the event.
 
 #### `db.discoveryKey`
 
 Buffer containing a key derived from the db.key.
-In contrast to `db.key` this key does not allow you to verify the data but can be used to announce or look for peers that are sharing the same hyperdb, without leaking the hyperdb key.
+In contrast to `db.key` this key does not allow you to verify the data but can be used to announce or look for peers that are sharing the same aodb, without leaking the aodb key.
 
 Populated after `ready` has been emitted. May be `null` before the event.
 
@@ -94,16 +100,17 @@ Checkout the db at an older version. The checkout is a DB instance as well.
 Version should be a version identifier returned by the `db.version` api or an
 array of nodes returned from `db.heads`.
 
-#### `db.put(key, value, [callback])`
+#### `db.put(key, value, signature, publicKey, [callback])`
 
 Insert a new value. Will merge any previous values seen for this key.
+Check out [example.js](example.js) on how to create `signature` and `publicKey`.
 
 #### `db.get(key, callback)`
 
 Lookup a string `key`. Returns a nodes array with the current values for this key.
 If there is no current conflicts for this key the array will only contain a single node.
 
-#### `db.del(key, callback)`
+#### `db.del(key, signature, publicKey, callback)`
 
 Delete a string `key`.
 
@@ -113,9 +120,11 @@ Insert a batch of values efficiently, in a single atomic transaction. A batch sh
 
 ``` js
 {
-  type: 'put',
-  key: someKey,
-  value: someValue
+    type: 'put',
+    key: someKey,
+    value: someValue,
+    signature: signedValueByIdentity,
+    writerAddress: publicKeyOfIdentity
 }
 ```
 
@@ -123,19 +132,19 @@ Insert a batch of values efficiently, in a single atomic transaction. A batch sh
 
 #### `db.local`
 
-Your local writable feed. You have to get an owner of the hyperdb to authorize you to have your
-writes replicate. The first person to create the hyperdb is the first owner.
+Your local writable feed. You have to get an owner of the aodb to authorize you to have your
+writes replicate. The first person to create the aodb is the first owner.
 
 #### `db.authorize(key, [callback])`
 
-Authorize another peer to write to the hyperdb.
+Authorize another peer to write to the aodb.
 
 To get another peer to authorize you you'd usually do something like
 
 ``` js
 myDb.on('ready', function () {
-  console.log('You local key is ' + myDb.local.key.toString('hex'))
-  console.log('Tell an owner to authorize it')
+	console.log('You local key is ' + myDb.local.key.toString('hex'))
+	console.log('Tell an owner to authorize it')
 })
 ```
 
@@ -145,9 +154,9 @@ Check whether a key is authorized to write to the database.
 
 ```js
 myDb.authorized(otherDb.local.key, function (err, auth) {
-  if (err) console.log('err', err)
-  else if (auth === true) console.log('authorized')
-  else console.log('not authorized')
+	if (err) console.log('err', err)
+	else if (auth === true) console.log('authorized')
+	else console.log('not authorized')
 })
 ```
 
@@ -158,12 +167,12 @@ has changed.
 
 ```js
 db.watch('foo/bar', function () {
-  console.log('folder has changed')
+	console.log('folder has changed')
 })
 
 ...
 
-db.put('foo/bar/baz', 'hi') // triggers the above
+db.put('foo/bar/baz', 'hi', 'someSignature', 'somePublicKey') // triggers the above
 ```
 
 You can destroy the watcher by calling `watcher.destroy()`.
@@ -182,10 +191,10 @@ Options include:
 
 ```js
 {
-  recursive: true // visit all subfolders.
-                  // set to false to only visit the first node in each folder
-  reverse: true   // read the records in reverse order.
-  gt: false       // visit only strictly nodes that are > than the prefix
+    recursive: true // visit all subfolders.
+	// set to false to only visit the first node in each folder
+	reverse: true   // read the records in reverse order.
+	gt: false       // visit only strictly nodes that are > than the prefix
 }
 ```
 
@@ -235,7 +244,7 @@ Create a replication stream. Options include:
 
 ``` js
 {
-  live: false // set to true to keep replicating
+    live: false // set to true to keep replicating
 }
 ```
 
