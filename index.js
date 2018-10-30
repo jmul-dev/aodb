@@ -166,7 +166,7 @@ AODB.prototype.put = function (key, val, signature, publicKey, opts, cb) {
 				// Validate the signature
 				if (signer === publicKey && signerToken === publicKey) {
 					put(self, clock, heads, key, val, signature, publicKey, opts, unlock)
-				}else{
+				} else {
 					return unlock('Error: signer does not match address and therefore does not have access to this record');
 				}
 			} else {
@@ -1086,6 +1086,8 @@ function inspect () {
 	return `Node(key=${this.key}` +
 		`, value=${util.inspect(this.value)}` +
 		`, seq=${this.seq}` +
-		`, feed=${this.feed})` +
+		`, feed=${this.feed}` +
+		`, signature=${util.inspect(this.signature)}` +
+		`, writerAddress=${util.inspect(this.writerAddress)}` +
 		`)`
 }
