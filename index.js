@@ -702,6 +702,7 @@ AODB.prototype._ready = function (cb) {
 }
 
 AODB.prototype.createSignHash = function (key, val) {
+	if (val === null) val = '';
 	var signData = [
 		{	// prefix
 			type: 'string',
