@@ -5,8 +5,8 @@ message Entry {
 	required bytes trie = 4;
 	repeated uint64 clock = 5;
 	optional uint64 inflate = 6;
-	optional string signature = 7;
-	optional string writerAddress = 8;
+	required string signature = 7;
+	required string writerAddress = 8;
 }
 
 message InflatedEntry {
@@ -20,10 +20,10 @@ message InflatedEntry {
 	required bytes trie = 4;
 	repeated uint64 clock = 5;
 	optional uint64 inflate = 6;
-	repeated Feed feeds = 7;
-	optional bytes contentFeed = 8;
-	optional string signature = 9;
-	optional string writerAddress = 10;
+	required string signature = 7;
+	required string writerAddress = 8;
+	repeated Feed feeds = 9;
+	optional bytes contentFeed = 10;
 }
 
 message Header {
