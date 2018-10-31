@@ -9,7 +9,7 @@ var db = aodb('./my.db', {
 })
 
 /***** Put *****/
-var key = '/' + identity.publicKey + '/hello';
+var key = identity.publicKey + '/hello';
 var value = 'world';
 var signature = EthCrypto.sign(identity.privateKey, db.createSignHash(key, value));
 
@@ -36,16 +36,16 @@ db.del(key, signature, identity.publicKey, function (err) {
 var batch = [
 	{
 		type: 'put',
-		key: '/' + identity.publicKey + '/key1',
+		key: identity.publicKey + '/key1',
 		value: 'value1',
-		signature: EthCrypto.sign(identity.privateKey, db.createSignHash('/' + identity.publicKey + '/key1', 'value1')),
+		signature: EthCrypto.sign(identity.privateKey, db.createSignHash(identity.publicKey + '/key1', 'value1')),
 		writerAddress: identity.publicKey
 	},
 	{
 		type: 'put',
-		key: '/' + identity.publicKey + '/key2',
+		key: identity.publicKey + '/key2',
 		value: 'value2',
-		signature: EthCrypto.sign(identity.privateKey, db.createSignHash('/' + identity.publicKey + '/key2', 'value2')),
+		signature: EthCrypto.sign(identity.privateKey, db.createSignHash(identity.publicKey + '/key2', 'value2')),
 		writerAddress: identity.publicKey
 	}
 ];
