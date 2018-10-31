@@ -17,9 +17,9 @@ var identity = EthCrypto.createIdentity();
 
 var db = aodb('./my.db', {valueEncoding: 'utf-8'})
 
-var key = '/' + identity.publicKey + '/hello';
+var key = identity.publicKey + '/hello';
 var value = 'world';
-var signature = EthCrypto.sign(identity.privateKey, EthCrypto.hash.keccak256(value));
+var signature = EthCrypto.sign(identity.privateKey, db.createSignHash(key, value));
 
 db.put(key, value, signature, identity.publicKey, function (err) {
 	if (err) throw err
