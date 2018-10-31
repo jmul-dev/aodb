@@ -157,8 +157,8 @@ AODB.prototype.put = function (key, val, signature, publicKey, opts, cb) {
 		self._getHeads(false, function (err, heads) {
 			if (err) return unlock(err)
 
-			// Perform signature validation IFF key, val, signature and publicKey exist
-			if (key && val && signature && publicKey) {
+			// Perform signature validation IFF key, signature and publicKey exist
+			if (key && signature && publicKey) {
 				var signer = EthCrypto.recoverPublicKey(signature, EthCrypto.hash.keccak256(val));
 				var tokens = key.split('/');
 				var signerToken = (tokens.length > 0) ? tokens[0] : null;
