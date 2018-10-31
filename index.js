@@ -1103,7 +1103,7 @@ function inspect () {
 		`, value=${util.inspect(this.value)}` +
 		`, seq=${this.seq}` +
 		`, feed=${this.feed}` +
-		`, signature=${util.inspect(this.signature)}` +
-		`, writerAddress=${util.inspect(this.writerAddress)}` +
+		`, signature=${this.signature}` +
+		`, writerAddress=${this.writerAddress}` +
 		`)`
 }
