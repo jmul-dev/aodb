@@ -118,7 +118,7 @@ AODB.prototype.batch = function (batch, cb) {
 				}
 
 				var next = batch[i++]
-				var signer = EthCrypto.recoverPublicKey(next.signature, EthCrypto.hash.keccak256(next.value));
+				var signer = EthCrypto.recoverPublicKey(next.signature, self.createSignHash(next.key, next.value));
 				var tokens = normalizeKey(next.key).split('/');
 				var signerToken = (tokens.length > 0) ? tokens[0] : null;
 
@@ -150,8 +150,6 @@ AODB.prototype.put = function (key, val, signature, publicKey, opts, cb) {
 
 	var self = this
 
-	key = normalizeKey(key)
-
 	this._lock(function (release) {
 		var clock = self._clock()
 		self._getHeads(false, function (err, heads) {
@@ -159,20 +157,20 @@ AODB.prototype.put = function (key, val, signature, publicKey, opts, cb) {
 
 			// Perform signature validation IFF key, signature and publicKey exist
 			if (key && signature && publicKey) {
-				var signer = EthCrypto.recoverPublicKey(signature, EthCrypto.hash.keccak256(val));
-				var tokens = key.split('/');
+				var signer = EthCrypto.recoverPublicKey(signature, self.createSignHash(key, val));
+				var tokens = normalizeKey(key).split('/');
 				var signerToken = (tokens.length > 0) ? tokens[0] : null;
 
 				// Validate the signature
 				if (signer === publicKey && signerToken === publicKey) {
-					put(self, clock, heads, key, val, signature, publicKey, opts, unlock)
+					put(self, clock, heads, normalizeKey(key), val, signature, publicKey, opts, unlock)
 				} else {
 					return unlock('Error: signer does not match address and therefore does not have access to this record');
 				}
 			} else {
 				// We don't need signature validation when authorizing empty key
 				// i.e at AODB.prototype.authorize = function (key, cb) {}
-				put(self, clock, heads, key, val, signature, publicKey, opts, unlock)
+				put(self, clock, heads, normalizeKey(key), val, signature, publicKey, opts, unlock)
 			}
 		})
 
@@ -183,7 +181,7 @@ AODB.prototype.put = function (key, val, signature, publicKey, opts, cb) {
 }
 
 AODB.prototype.del = function (key, signature, publicKey, cb) {
-	this.put(key, null, signature, publicKey, { delete: true }, cb)
+	this.put(key, '', signature, publicKey, { delete: true }, cb)
 }
 
 AODB.prototype.watch = function (key, cb) {
@@ -701,6 +699,24 @@ AODB.prototype._ready = function (cb) {
 
 		done(null)
 	}
+}
+
+AODB.prototype.createSignHash = function (key, val) {
+	var signData = [
+		{	// prefix
+			type: 'string',
+			value: 'AODB Signature'
+		},
+		{	// key to be signed
+			type: 'string',
+			value: key
+		},
+		{	// value to be signed
+			type: 'string',
+			value: val
+		}
+	];
+	return EthCrypto.hash.keccak256(signData);
 }
 
 function Writer (db, feed) {
