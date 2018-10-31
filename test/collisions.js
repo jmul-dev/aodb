@@ -3,9 +3,9 @@ var create = require('./helpers/create')
 var EthCrypto = require('eth-crypto');
 var identity = EthCrypto.createIdentity();
 
-var key1 = '/' + identity.publicKey + '/idgcmnmna';
+var key1 = identity.publicKey + '/idgcmnmna';
 var value1 = 'a';
-var key2 = '/' + identity.publicKey + '/mpomeiehc';
+var key2 = identity.publicKey + '/mpomeiehc';
 var value2 = 'b';
 
 tape('two keys with same siphash', function (t) {

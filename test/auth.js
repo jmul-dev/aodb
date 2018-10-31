@@ -8,7 +8,7 @@ var identityB = EthCrypto.createIdentity();
 
 tape('authorized writer passes "authorized" api', function (t) {
 	create.two(function (a, b) {
-		var key = '/' + identityA.publicKey + '/foo';
+		var key = identityA.publicKey + '/foo';
 		var value = 'bar';
 		var signature = EthCrypto.sign(identityA.privateKey, a.createSignHash(key, value));
 		a.put(key, value, signature, identityA.publicKey, function (err) {
@@ -28,7 +28,7 @@ tape('authorized writer passes "authorized" api', function (t) {
 
 tape('authorized writer passes "authorized" api', function (t) {
 	create.two(function (a, b) {
-		var key = '/' + identityB.publicKey + '/foo';
+		var key = identityB.publicKey + '/foo';
 		var value = 'bar';
 		var signature = EthCrypto.sign(identityB.privateKey, b.createSignHash(key, value));
 		b.put(key, value, signature, identityB.publicKey, function (err) {
@@ -65,7 +65,7 @@ tape('local unauthorized writes =/> authorized', function (t) {
 	a.ready(function () {
 		var b = create.one(a.key)
 		b.ready(function () {
-			var key = '/' + identityB.publicKey + '/foo';
+			var key = identityB.publicKey + '/foo';
 			var value = 'bar';
 			var signature = EthCrypto.sign(identityB.privateKey, b.createSignHash(key, value));
 			b.put(key, value, signature, identityB.publicKey, function (err) {
@@ -91,7 +91,7 @@ tape('unauthorized writer doing a put after replication', function (t) {
 		var b = create.one(a.key)
 		b.ready(function () {
 			replicate(a, b, function () {
-				var key = '/' + identityB.publicKey + '/foo';
+				var key = identityB.publicKey + '/foo';
 				var value = 'bar';
 				var signature = EthCrypto.sign(identityB.privateKey, b.createSignHash(key, value));
 				b.put(key, value, signature, identityB.publicKey, function (err) {
@@ -106,10 +106,10 @@ tape('unauthorized writer fails "authorized" after some writes', function (t) {
 	var a = create.one()
 	a.ready(function () {
 		run(
-			cb => a.put('/' + identityA.publicKey + '/foo', 'bar', EthCrypto.sign(identityA.privateKey, a.createSignHash('/' + identityA.publicKey + '/foo', 'bar')), identityA.publicKey, cb),
-			cb => a.put('/' + identityA.publicKey + '/foo', 'bar2', EthCrypto.sign(identityA.privateKey, a.createSignHash('/' + identityA.publicKey + '/foo', 'bar2')), identityA.publicKey, cb),
-			cb => a.put('/' + identityA.publicKey + '/foo', 'bar3', EthCrypto.sign(identityA.privateKey, a.createSignHash('/' + identityA.publicKey + '/foo', 'bar3')), identityA.publicKey, cb),
-			cb => a.put('/' + identityA.publicKey + '/foo', 'bar4', EthCrypto.sign(identityA.privateKey, a.createSignHash('/' + identityA.publicKey + '/foo', 'bar4')), identityA.publicKey, cb),
+			cb => a.put(identityA.publicKey + '/foo', 'bar', EthCrypto.sign(identityA.privateKey, a.createSignHash(identityA.publicKey + '/foo', 'bar')), identityA.publicKey, cb),
+			cb => a.put(identityA.publicKey + '/foo', 'bar2', EthCrypto.sign(identityA.privateKey, a.createSignHash(identityA.publicKey + '/foo', 'bar2')), identityA.publicKey, cb),
+			cb => a.put(identityA.publicKey + '/foo', 'bar3', EthCrypto.sign(identityA.privateKey, a.createSignHash(identityA.publicKey + '/foo', 'bar3')), identityA.publicKey, cb),
+			cb => a.put(identityA.publicKey + '/foo', 'bar4', EthCrypto.sign(identityA.privateKey, a.createSignHash(identityA.publicKey + '/foo', 'bar4')), identityA.publicKey, cb),
 			done
 		)
 
@@ -137,8 +137,8 @@ tape('authorized is consistent', function (t) {
 		var b = create.one(a.key, {contentFeed: true, latency: 10})
 
 		run(
-			cb => b.put('/' + identityB.publicKey + '/bar', 'foo', EthCrypto.sign(identityB.privateKey, b.createSignHash('/' + identityB.publicKey + '/bar', 'foo')), identityB.publicKey, cb),
-			cb => a.put('/' + identityA.publicKey + '/foo', 'bar', EthCrypto.sign(identityA.privateKey, a.createSignHash('/' + identityA.publicKey + '/foo', 'bar')), identityA.publicKey, cb),
+			cb => b.put(identityB.publicKey + '/bar', 'foo', EthCrypto.sign(identityB.privateKey, b.createSignHash(identityB.publicKey + '/bar', 'foo')), identityB.publicKey, cb),
+			cb => a.put(identityA.publicKey + '/foo', 'bar', EthCrypto.sign(identityA.privateKey, a.createSignHash(identityA.publicKey + '/foo', 'bar')), identityA.publicKey, cb),
 			auth,
 			replicate.bind(null, a, b),
 			done
