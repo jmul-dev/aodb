@@ -11,21 +11,21 @@ Read [ARCHITECTURE.md](ARCHITECTURE.md) for details on how hyperdb works.
 ## Usage
 
 ``` js
-var aodb = require('aodb')
-var EthCrypto = require('eth-crypto');
-var identity = EthCrypto.createIdentity();
+const aodb = require('./')
+const EthCrypto = require('eth-crypto');
+const { privateKey, publicKey : writerAddress }  = EthCrypto.createIdentity();
 
-var db = aodb('./my.db', {valueEncoding: 'utf-8'})
+const db = aodb('./my.db', {valueEncoding: 'utf-8'})
 
-var key = identity.publicKey + '/hello';
-var value = 'world';
-var signature = EthCrypto.sign(identity.privateKey, db.createSignHash(key, value));
+let key = writerAddress + '/hello';
+let value = 'world';
+let writerSignature = EthCrypto.sign(privateKey, db.createSignHash(key, value));
 
-db.put(key, value, signature, identity.publicKey, function (err) {
+db.put(key, value, writerSignature, writerAddress, (err) => {
 	if (err) throw err
-	db.get(key, function (err, node) {
+	db.get(key, (err, node) => {
 		if (err) throw err
-		console.log(key + ' --> ' + node.value)
+		console.log('inserted: ' + key + ' --> ' + node.value)
 	})
 })
 ```

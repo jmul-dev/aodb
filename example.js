@@ -1,62 +1,62 @@
-var aodb = require('./')
-var EthCrypto = require('eth-crypto');
+const aodb = require('./')
+const EthCrypto = require('eth-crypto');
 
-var identity = EthCrypto.createIdentity();
+const { privateKey, publicKey : writerAddress }  = EthCrypto.createIdentity();
 
-var db = aodb('./my.db', {
+const db = aodb('./my.db', {
 	valueEncoding: 'utf-8',
 	reduce: (a, b) => a
 })
 
 /***** Put *****/
-var key = identity.publicKey + '/hello';
-var value = 'world';
-var signature = EthCrypto.sign(identity.privateKey, db.createSignHash(key, value));
+let key = writerAddress + '/hello';
+let value = 'world';
+let writerSignature = EthCrypto.sign(privateKey, db.createSignHash(key, value));
 
-db.put(key, value, signature, identity.publicKey, function (err) {
+db.put(key, value, writerSignature, writerAddress, (err) => {
 	if (err) throw err
-	db.get(key, function (err, node) {
+	db.get(key, (err, node) => {
 		if (err) throw err
 		console.log('inserted: ' + key + ' --> ' + node.value)
 	})
 })
 
 /***** Delete *****/
-// Create signature of empty value
-var signature = EthCrypto.sign(identity.privateKey, db.createSignHash(key, ''));
-db.del(key, signature, identity.publicKey, function (err) {
+// Create writerSignature of empty value
+writerSignature = EthCrypto.sign(privateKey, db.createSignHash(key, ''));
+db.del(key, writerSignature, writerAddress, (err) => {
 	if (err) throw err
-	db.get(key, function (err, node) {
+	db.get(key, (err, node) => {
 		if (err) throw err
 		console.log('deleted: ' + key + ' --> ' + node)
 	})
 });
 
 // Batch insert
-var batch = [
+const batch = [
 	{
 		type: 'put',
-		key: identity.publicKey + '/key1',
+		key: writerAddress + '/key1',
 		value: 'value1',
-		signature: EthCrypto.sign(identity.privateKey, db.createSignHash(identity.publicKey + '/key1', 'value1')),
-		writerAddress: identity.publicKey
+		writerSignature: EthCrypto.sign(privateKey, db.createSignHash(writerAddress + '/key1', 'value1')),
+		writerAddress
 	},
 	{
 		type: 'put',
-		key: identity.publicKey + '/key2',
+		key: writerAddress + '/key2',
 		value: 'value2',
-		signature: EthCrypto.sign(identity.privateKey, db.createSignHash(identity.publicKey + '/key2', 'value2')),
-		writerAddress: identity.publicKey
+		writerSignature: EthCrypto.sign(privateKey, db.createSignHash(writerAddress + '/key2', 'value2')),
+		writerAddress: writerAddress
 	}
 ];
 
-db.batch(batch, function (err) {
+db.batch(batch, (err) => {
 	if (err) throw err
-	db.get(batch[0].key, function (err, node) {
+	db.get(batch[0].key, (err, node) => {
 		if (err) throw err
 		console.log('batch insert: ' + batch[0].key + ' --> ' + node.value)
 	});
-	db.get(batch[1].key, function (err, node) {
+	db.get(batch[1].key, (err, node) => {
 		if (err) throw err
 		console.log('batch insert: ' + batch[1].key + ' --> ' + node.value)
 	});
