@@ -118,13 +118,13 @@ AODB.prototype.batch = function (batch, cb) {
 				}
 
 				var next = batch[i++]
-				var signer = EthCrypto.recoverPublicKey(next.signature, self.createSignHash(next.key, next.value));
+				var signer = EthCrypto.recoverPublicKey(next.writerSignature, self.createSignHash(next.key, next.value));
 				var tokens = normalizeKey(next.key).split('/');
 				var signerToken = (tokens.length > 0) ? tokens[0] : null;
 
-				// Validate the signature
+				// Validate the writerSignature
 				if (signer === next.writerAddress && signerToken === next.writerAddress) {
-					put(self, clock, heads, normalizeKey(next.key), next.value, next.signature, next.writerAddress, {delete: next.type === 'del'}, loop)
+					put(self, clock, heads, normalizeKey(next.key), next.value, next.writerSignature, next.writerAddress, {delete: next.type === 'del'}, loop)
 				} else {
 					return done('Error: signer does not match address and therefore does not have access to this record');
 				}
@@ -140,8 +140,8 @@ AODB.prototype.batch = function (batch, cb) {
 	})
 }
 
-AODB.prototype.put = function (key, val, signature, publicKey, opts, cb) {
-	if (typeof opts === 'function') return this.put(key, val, signature, publicKey, null, opts)
+AODB.prototype.put = function (key, val, writerSignature, writerAddress, opts, cb) {
+	if (typeof opts === 'function') return this.put(key, val, writerSignature, writerAddress, null, opts)
 	if (!cb) cb = noop
 
 	if (this._checkout) {
@@ -155,22 +155,22 @@ AODB.prototype.put = function (key, val, signature, publicKey, opts, cb) {
 		self._getHeads(false, function (err, heads) {
 			if (err) return unlock(err)
 
-			// Perform signature validation IFF key, signature and publicKey exist
-			if (key && signature && publicKey) {
-				var signer = EthCrypto.recoverPublicKey(signature, self.createSignHash(key, val));
+			// Perform writerSignature validation IFF key, writerSignature and writerAddress exist
+			if (key && writerSignature && writerAddress) {
+				var signer = EthCrypto.recoverPublicKey(writerSignature, self.createSignHash(key, val));
 				var tokens = normalizeKey(key).split('/');
 				var signerToken = (tokens.length > 0) ? tokens[0] : null;
 
-				// Validate the signature
-				if (signer === publicKey && signerToken === publicKey) {
-					put(self, clock, heads, normalizeKey(key), val, signature, publicKey, opts, unlock)
+				// Validate the writerSignature
+				if (signer === writerAddress && signerToken === writerAddress) {
+					put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock)
 				} else {
 					return unlock('Error: signer does not match address and therefore does not have access to this record');
 				}
 			} else {
-				// We don't need signature validation when authorizing empty key
+				// We don't need writerSignature validation when authorizing empty key
 				// i.e at AODB.prototype.authorize = function (key, cb) {}
-				put(self, clock, heads, normalizeKey(key), val, signature, publicKey, opts, unlock)
+				put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock)
 			}
 		})
 
@@ -180,8 +180,8 @@ AODB.prototype.put = function (key, val, signature, publicKey, opts, cb) {
 	})
 }
 
-AODB.prototype.del = function (key, signature, publicKey, cb) {
-	this.put(key, '', signature, publicKey, { delete: true }, cb)
+AODB.prototype.del = function (key, writerSignature, writerAddress, cb) {
+	this.put(key, '', writerSignature, writerAddress, { delete: true }, cb)
 }
 
 AODB.prototype.watch = function (key, cb) {
@@ -778,15 +778,22 @@ Writer.prototype.append = function (entry, cb) {
 
 	var mapped = {
 		key: entry.key,
+		pointerKey: entry.pointerKey,
 		value: null,
 		deleted: entry.deleted,
+		pointer: entry.pointer,
+		noUpdate: entry.noUpdate,
+		isSchema: entry.isSchema,
 		inflate: 0,
 		clock: null,
 		trie: null,
 		feeds: null,
 		contentFeed: null,
-		signature: entry.signature,
-		writerAddress: entry.writerAddress
+		writerSignature: entry.writerSignature,
+		writerAddress: entry.writerAddress,
+		proofSignature: entry.proofSignature,
+		proofPayload: entry.proofPayload,
+		rootHash: entry.rootHash
 	}
 
 	if (this._needsInflate()) {
@@ -839,6 +846,7 @@ Writer.prototype._decode = function (seq, buf, cb) {
 	val.path = hash(val.key, true)
 	try {
 		val.value = val.value && this._db._valueEncoding.decode(val.value)
+		val.proofPayload = val.proofPayload && this._db._valueEncoding.decode(val.proofPayload)
 	} catch (e) {
 		return cb(e)
 	}
@@ -1101,10 +1109,17 @@ function noop () {}
 
 function inspect () {
 	return `Node(key=${this.key}` +
+		`, pointerKey=${this.pointerKey}` +
 		`, value=${util.inspect(this.value)}` +
+		`, pointer=${this.pointer}` +
+		`, noUpdate=${this.noUpdate}` +
+		`, isSchema=${this.isSchema}` +
 		`, seq=${this.seq}` +
 		`, feed=${this.feed}` +
-		`, signature=${this.signature}` +
+		`, writerSignature=${this.writerSignature}` +
 		`, writerAddress=${this.writerAddress}` +
+		`, proofSignature=${this.proofSignature}` +
+		`, proofPayload=${util.inspect(this.proofPayload)}` +
+		`, rootHash=${this.rootHash}` +
 		`)`
 }
