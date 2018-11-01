@@ -4,22 +4,56 @@ const EthCrypto = require('eth-crypto');
 const { privateKey, publicKey : writerAddress }  = EthCrypto.createIdentity();
 
 const db = aodb('./my.db', {
-	valueEncoding: 'utf-8',
+	valueEncoding: 'json',
 	reduce: (a, b) => a
 })
 
-/***** Put *****/
-let key = writerAddress + '/hello';
-let value = 'world';
+/***** Put a Schema *****/
+let key = 'schema/content/*/description/title';
+let value = {
+	keySchema: 'content/*/description/title',
+	valueValidationKey: '',
+	keyValidation: ''
+};
 let writerSignature = EthCrypto.sign(privateKey, db.createSignHash(key, value));
+
+db.put(key, value, writerSignature, writerAddress, { isSchema: true }, (err) => {
+	if (err) throw err
+	db.get(key, (err, node) => {
+		if (err) throw err
+		console.log('inserted: ' + key + ' --> ' + JSON.stringify(node.value))
+
+		/***** Put *****/
+		key = 'content/0x123456789/description/title';
+		value = 'My First Video';
+		writerSignature = EthCrypto.sign(privateKey, db.createSignHash(key, value));
+
+		db.put(key, value, writerSignature, writerAddress, { schemaKey: 'schema/content/*/description/title' }, (err) => {
+			if (err) throw err
+			db.get(key, (err, node) => {
+				if (err) throw err
+				console.log('inserted: ' + key + ' --> ' + node.value)
+			});
+		})
+	})
+})
+
+return;
+/***** Put *****/
+key = writerAddress + '/hello';
+value = {foo: 'bar'};
+writerSignature = EthCrypto.sign(privateKey, db.createSignHash(key, value));
 
 db.put(key, value, writerSignature, writerAddress, (err) => {
 	if (err) throw err
 	db.get(key, (err, node) => {
 		if (err) throw err
-		console.log('inserted: ' + key + ' --> ' + node.value)
+		console.log('inserted: ' + key + ' --> ' + JSON.stringify(node.value))
+		console.log('key', node.key);
+		console.log('node', node);
 	})
 })
+return;
 
 /***** Delete *****/
 // Create writerSignature of empty value
