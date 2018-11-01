@@ -158,14 +158,45 @@ AODB.prototype.put = function (key, val, writerSignature, writerAddress, opts, c
 			// Perform writerSignature validation IFF key, writerSignature and writerAddress exist
 			if (key && writerSignature && writerAddress) {
 				var signer = EthCrypto.recoverPublicKey(writerSignature, self.createSignHash(key, val));
-				var tokens = normalizeKey(key).split('/');
-				var signerToken = (tokens.length > 0) ? tokens[0] : null;
 
-				// Validate the writerSignature
-				if (signer === writerAddress && signerToken === writerAddress) {
-					put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock)
+				if (opts && opts.isSchema === true) {
+					// Schema is not rewriteable
+					opts.ifNotExists = true
+					opts.noUpdate = true
+
+					// Validate the writerSignature
+					if (signer === writerAddress) {
+						put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock)
+					} else {
+						return unlock('Error: signer does not match address and therefore does not have access to this record');
+					}
 				} else {
-					return unlock('Error: signer does not match address and therefore does not have access to this record');
+					// If not writing a schema, then a schemaKey for this key needs to be provided
+					if (opts && !opts.schemaKey) {
+						return unlock('Error: missing the schemaKey option for this entry');
+					}
+					// Get the schema
+					get(self, heads, normalizeKey(opts.schemaKey), function (err, node) {
+						if (err) return unlock(err)
+						if (!node) return unlock('Error: unable to find this entry for the schemaKey')
+
+						// If this is as valid key schema
+						if (validKeySchema(normalizeKey(key), node.value)) {
+							/*
+							var tokens = normalizeKey(key).split('/');
+							var signerToken = (tokens.length > 0) ? tokens[0] : null;
+							*/
+
+							// Validate the writerSignature
+							if (signer === writerAddress) {
+								put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock)
+							} else {
+								return unlock('Error: signer does not match address and therefore does not have access to this record');
+							}
+						} else {
+							return unlock('Error: key does not have the correct schema');
+						}
+					})
 				}
 			} else {
 				// We don't need writerSignature validation when authorizing empty key
@@ -779,6 +810,7 @@ Writer.prototype.append = function (entry, cb) {
 	var mapped = {
 		key: entry.key,
 		pointerKey: entry.pointerKey,
+		schemaKey: entry.schemaKey,
 		value: null,
 		deleted: entry.deleted,
 		pointer: entry.pointer,
@@ -1110,6 +1142,7 @@ function noop () {}
 function inspect () {
 	return `Node(key=${this.key}` +
 		`, pointerKey=${this.pointerKey}` +
+		`, schemaKey=${this.schemaKey}` +
 		`, value=${util.inspect(this.value)}` +
 		`, pointer=${this.pointer}` +
 		`, noUpdate=${this.noUpdate}` +
@@ -1122,4 +1155,19 @@ function inspect () {
 		`, proofPayload=${util.inspect(this.proofPayload)}` +
 		`, rootHash=${this.rootHash}` +
 		`)`
+}
+
+function validKeySchema(key, schemaObj) {
+	var splitKey = key.split('/');
+	var splitKeySchema = schemaObj.keySchema.split('/');
+
+	if (splitKey.length != splitKeySchema.length) return false
+
+	for (var i=0; i < splitKeySchema.length; i++) {
+		if (splitKeySchema[i] === '*') continue
+		if (splitKeySchema[i] !== splitKey[i]) return false
+	}
+	return true
+	console.log('key', key);
+	console.log('schemaObj', schemaObj);
 }
