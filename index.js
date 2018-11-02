@@ -164,9 +164,9 @@ AODB.prototype.put = function (key, val, writerSignature, writerAddress, opts, c
 					return unlock('Error: signer does not match address and therefore does not have access to this record');
 				}
 
+				// If writing a schema
 				if (opts && opts.isSchema === true) {
 					// Schema is not rewriteable
-					opts.ifNotExists = true
 					opts.noUpdate = true
 
 					// Validate the val
@@ -175,6 +175,9 @@ AODB.prototype.put = function (key, val, writerSignature, writerAddress, opts, c
 						return unlock('Error: ' + validation.errorMessage);
 					}
 
+					put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock)
+				} else if (opts && opts.delete === true) {
+					// If deleting an entry
 					put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock)
 				} else {
 					// If not writing a schema, then a schemaKey for this key needs to be provided

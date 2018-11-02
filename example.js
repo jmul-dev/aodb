@@ -9,50 +9,46 @@ const db = aodb('./my.db', {
 })
 
 /***** Add a Schema *****/
-let key = 'schema/content/*/review/%writerAddress%';
-let value = {
+let schemaKey = 'schema/content/*/review/%writerAddress%';
+let schemaValue = {
 	keySchema: 'content/*/review/%writerAddress%',
 	valueValidationKey: '',
 	keyValidation: ''
 };
-let writerSignature = EthCrypto.sign(privateKey, db.createSignHash(key, value));
+let writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue));
 
-db.addSchema(key, value, writerSignature, writerAddress, (err) => {
+db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
 	if (err) throw err
-	db.get(key, (err, node) => {
+	db.get(schemaKey, (err, node) => {
 		if (err) throw err
-		console.log('inserted: ' + key + ' --> ' + JSON.stringify(node.value))
+		console.log('Add Schema:\n' + schemaKey + ' --> ' + JSON.stringify(node.value) + '\n')
 
 		/***** Put *****/
-		key = 'content/0x123456789/review/' + writerAddress;
-		value = 'Love the content';
+		let key = 'content/0x123456789/review/' + writerAddress;
+		let value = 'Love the content';
 		writerSignature = EthCrypto.sign(privateKey, db.createSignHash(key, value));
 
 		db.put(key, value, writerSignature, writerAddress, { schemaKey: 'schema/content/*/review/%writerAddress%' }, (err) => {
 			if (err) throw err
 			db.get(key, (err, node) => {
 				if (err) throw err
-				console.log('inserted: ' + key + ' --> ' + node.value)
-			});
+				console.log('Put:\n' + key + ' --> ' + node.value + '\n')
+
+				/***** Delete *****/
+				// Create writerSignature of empty value
+				writerSignature = EthCrypto.sign(privateKey, db.createSignHash(key, ''));
+				db.del(key, writerSignature, writerAddress, (err) => {
+					if (err) throw err
+					db.get(key, (err, node) => {
+						if (err) throw err
+						console.log('Delete:\n' + key + ' --> ' + node + '\n')
+					})
+				})
+			})
 		})
 	})
 })
 
-return;
-/***** Put *****/
-key = writerAddress + '/hello';
-value = {foo: 'bar'};
-writerSignature = EthCrypto.sign(privateKey, db.createSignHash(key, value));
-
-db.put(key, value, writerSignature, writerAddress, (err) => {
-	if (err) throw err
-	db.get(key, (err, node) => {
-		if (err) throw err
-		console.log('inserted: ' + key + ' --> ' + JSON.stringify(node.value))
-		console.log('key', node.key);
-		console.log('node', node);
-	})
-})
 return;
 
 /***** Delete *****/
