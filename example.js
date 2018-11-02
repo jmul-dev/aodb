@@ -8,27 +8,27 @@ const db = aodb('./my.db', {
 	reduce: (a, b) => a
 })
 
-/***** Put a Schema *****/
-let key = 'schema/content/*/description/title';
+/***** Add a Schema *****/
+let key = 'schema/content/*/review/%writerAddress%';
 let value = {
-	keySchema: 'content/*/description/title',
+	keySchema: 'content/*/review/%writerAddress%',
 	valueValidationKey: '',
 	keyValidation: ''
 };
 let writerSignature = EthCrypto.sign(privateKey, db.createSignHash(key, value));
 
-db.put(key, value, writerSignature, writerAddress, { isSchema: true }, (err) => {
+db.addSchema(key, value, writerSignature, writerAddress, (err) => {
 	if (err) throw err
 	db.get(key, (err, node) => {
 		if (err) throw err
 		console.log('inserted: ' + key + ' --> ' + JSON.stringify(node.value))
 
 		/***** Put *****/
-		key = 'content/0x123456789/description/title';
-		value = 'My First Video';
+		key = 'content/0x123456789/review/' + writerAddress;
+		value = 'Love the content';
 		writerSignature = EthCrypto.sign(privateKey, db.createSignHash(key, value));
 
-		db.put(key, value, writerSignature, writerAddress, { schemaKey: 'schema/content/*/description/title' }, (err) => {
+		db.put(key, value, writerSignature, writerAddress, { schemaKey: 'schema/content/*/review/%writerAddress%' }, (err) => {
 			if (err) throw err
 			db.get(key, (err, node) => {
 				if (err) throw err

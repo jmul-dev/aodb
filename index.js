@@ -159,17 +159,23 @@ AODB.prototype.put = function (key, val, writerSignature, writerAddress, opts, c
 			if (key && writerSignature && writerAddress) {
 				var signer = EthCrypto.recoverPublicKey(writerSignature, self.createSignHash(key, val));
 
+				// Validate the writerSignature
+				if (signer !== writerAddress) {
+					return unlock('Error: signer does not match address and therefore does not have access to this record');
+				}
+
 				if (opts && opts.isSchema === true) {
 					// Schema is not rewriteable
 					opts.ifNotExists = true
 					opts.noUpdate = true
 
-					// Validate the writerSignature
-					if (signer === writerAddress) {
-						put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock)
-					} else {
-						return unlock('Error: signer does not match address and therefore does not have access to this record');
+					// Validate the val
+					var validation = validateSchemaVal(key, val);
+					if (validation.error) {
+						return unlock('Error: ' + validation.errorMessage);
 					}
+
+					put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock)
 				} else {
 					// If not writing a schema, then a schemaKey for this key needs to be provided
 					if (opts && !opts.schemaKey) {
@@ -180,22 +186,12 @@ AODB.prototype.put = function (key, val, writerSignature, writerAddress, opts, c
 						if (err) return unlock(err)
 						if (!node) return unlock('Error: unable to find this entry for the schemaKey')
 
-						// If this is as valid key schema
-						if (validKeySchema(normalizeKey(key), node.value)) {
-							/*
-							var tokens = normalizeKey(key).split('/');
-							var signerToken = (tokens.length > 0) ? tokens[0] : null;
-							*/
-
-							// Validate the writerSignature
-							if (signer === writerAddress) {
-								put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock)
-							} else {
-								return unlock('Error: signer does not match address and therefore does not have access to this record');
-							}
-						} else {
-							return unlock('Error: key does not have the correct schema');
+						// Validate the key
+						var validation = validateKeySchema(normalizeKey(key), node.value, writerAddress);
+						if (validation.error) {
+							return unlock('Error: ' + validation.errorMessage);
 						}
+						put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock)
 					})
 				}
 			} else {
@@ -209,6 +205,10 @@ AODB.prototype.put = function (key, val, writerSignature, writerAddress, opts, c
 			release(cb, err, node)
 		}
 	})
+}
+
+AODB.prototype.addSchema = function (key, val, writerSignature, writerAddress, cb) {
+	this.put(key, val, writerSignature, writerAddress, { isSchema: true, ifNotExists: true, noUpdate: true }, cb)
 }
 
 AODB.prototype.del = function (key, writerSignature, writerAddress, cb) {
@@ -1157,17 +1157,50 @@ function inspect () {
 		`)`
 }
 
-function validKeySchema(key, schemaObj) {
+/**
+ * @dev Check whether or not the value of a schema entry is valid
+ *		i.e, has to be in following structure
+ *		val => {
+ *			keySchema: someSchema,
+ *			valueValidationKey: someValidationKey,
+ *			keyValidation: pointerToLibraryWithRelevantVariables
+ *		}
+ */
+function validateSchemaVal(key, val) {
+	if (!key || typeof(val) !== 'object')
+		return { error: true, errorMessage: 'Missing key/val value' };
+	if (!val.hasOwnProperty('keySchema') || !val.hasOwnProperty('valueValidationKey') || !val.hasOwnProperty('keyValidation'))
+		return { error: true, errorMessage: 'val is missing keySchema / valueValidationKey / keyValidation property' };
+	if (normalizeKey(key) !== 'schema/' + normalizeKey(val.keySchema))
+		return { error: true, errorMessage: 'key does not have the correct schema structure' };
+	if (val.valueValidationKey) {
+		get(this, heads, normalizeKey(val.validationKey), function (err, node) {
+			if (err)
+				return { error: true, errorMessage: err };
+			if (!node)
+				return { error: true, errorMessage: 'Unable to find valueValidationKey entry' };
+		});
+	}
+	return { error: false, errorMessage: '' };
+}
+
+/**
+ * @dev Check whether or not a key follows the schema structure
+ */
+function validateKeySchema(key, schemaObj, writerAddress) {
 	var splitKey = key.split('/');
 	var splitKeySchema = schemaObj.keySchema.split('/');
 
-	if (splitKey.length != splitKeySchema.length) return false
+	if (splitKey.length != splitKeySchema.length)
+		return { error: true, errorMessage: 'key has incorrect space length' };
 
 	for (var i=0; i < splitKeySchema.length; i++) {
 		if (splitKeySchema[i] === '*') continue
-		if (splitKeySchema[i] !== splitKey[i]) return false
+		if (splitKeySchema[i] === '%writerAddress%' && splitKey[i] !== writerAddress) {
+			return { error: true, errorMessage: 'key\'s writerAddress does not match the address' };
+		}
+		if (splitKeySchema[i] !== splitKey[i] && splitKeySchema[i] !== '%writerAddress%')
+			return { error: true, errorMessage: 'key\'s space not match. key => ' + splitKey[i] + '. schema => ' + splitKeySchema[i] };
 	}
-	return true
-	console.log('key', key);
-	console.log('schemaObj', schemaObj);
+	return { error: false, errorMessage: '' };
 }
