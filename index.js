@@ -208,7 +208,7 @@ AODB.prototype.put = function (key, val, writerSignature, writerAddress, opts, c
 }
 
 AODB.prototype.addSchema = function (key, val, writerSignature, writerAddress, cb) {
-	this.put(key, val, writerSignature, writerAddress, { isSchema: true, ifNotExists: true, noUpdate: true }, cb)
+	this.put(key, val, writerSignature, writerAddress, { isSchema: true }, cb)
 }
 
 AODB.prototype.del = function (key, writerSignature, writerAddress, cb) {
