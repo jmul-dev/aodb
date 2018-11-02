@@ -118,15 +118,38 @@ AODB.prototype.batch = function (batch, cb) {
 				}
 
 				var next = batch[i++]
-				var signer = EthCrypto.recoverPublicKey(next.writerSignature, self.createSignHash(next.key, next.value));
-				var tokens = normalizeKey(next.key).split('/');
-				var signerToken = (tokens.length > 0) ? tokens[0] : null;
 
-				// Validate the writerSignature
-				if (signer === next.writerAddress && signerToken === next.writerAddress) {
-					put(self, clock, heads, normalizeKey(next.key), next.value, next.writerSignature, next.writerAddress, {delete: next.type === 'del'}, loop)
-				} else {
+				var signer = EthCrypto.recoverPublicKey(next.writerSignature, self.createSignHash(next.key, next.value));
+				if (signer !== next.writerAddress) {
 					return done('Error: signer does not match address and therefore does not have access to this record');
+				}
+
+				if (next.type === 'add-schema') {
+					// Validate the val
+					var validation = validateSchemaVal(next.key, next.value);
+					if (validation.error) {
+						return done('Error: ' + validation.errorMessage);
+					}
+
+					put(self, clock, heads, normalizeKey(next.key), next.value, next.writerSignature, next.writerAddress, {isSchema: true, noUpdate: true}, loop)
+				} else if (next.type === 'del') {
+					put(self, clock, heads, normalizeKey(next.key), next.value, next.writerSignature, next.writerAddress, {delete: next.type === 'del'}, loop)
+				} else if (next.type === 'put') {
+					if (!next.schemaKey) {
+						return done('Error: missing the schemaKey option for this entry');
+					}
+					// Get the schema
+					get(self, heads, normalizeKey(next.schemaKey), function (err, node) {
+						if (err) return done(err)
+						if (!node) return done('Error: unable to find this entry for the schemaKey')
+
+						// Validate the key
+						var validation = validateKeySchema(normalizeKey(next.key), node.value, next.writerAddress);
+						if (validation.error) {
+							return done('Error: ' + validation.errorMessage);
+						}
+						put(self, clock, heads, normalizeKey(next.key), next.value, next.writerSignature, next.writerAddress, {schemaKey: next.schemaKey}, loop)
+					})
 				}
 			}
 
