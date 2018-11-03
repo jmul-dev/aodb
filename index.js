@@ -104,7 +104,7 @@ AODB.prototype.batch = function (batch, cb) {
 
 			loop(null)
 
-			function loop (err, node) {
+			async function loop (err, node) {
 				if (err) return done(err)
 
 				if (node) {
@@ -125,13 +125,15 @@ AODB.prototype.batch = function (batch, cb) {
 				}
 
 				if (next.type === 'add-schema') {
-					// Validate the val
-					var validation = validateSchemaVal(next.key, next.value);
-					if (validation.error) {
-						return done('Error: ' + validation.errorMessage);
+					// Validate the schema val
+					try {
+						var validation = await validateSchemaVal(self, heads, next.key, next.value);
+						if (!validation.error) {
+							put(self, clock, heads, normalizeKey(next.key), next.value, next.writerSignature, next.writerAddress, {isSchema: true, noUpdate: true}, loop)
+						}
+					} catch (e) {
+						return process.nextTick(cb, new Error('Error: ' + e.errorMessage))
 					}
-
-					put(self, clock, heads, normalizeKey(next.key), next.value, next.writerSignature, next.writerAddress, {isSchema: true, noUpdate: true}, loop)
 				} else if (next.type === 'del') {
 					put(self, clock, heads, normalizeKey(next.key), next.value, next.writerSignature, next.writerAddress, {delete: next.type === 'del'}, loop)
 				} else if (next.type === 'put') {
@@ -139,16 +141,29 @@ AODB.prototype.batch = function (batch, cb) {
 						return done('Error: missing the schemaKey option for this entry');
 					}
 					// Get the schema
-					get(self, heads, normalizeKey(next.schemaKey), function (err, node) {
+					get(self, heads, normalizeKey(next.schemaKey), async function (err, node) {
 						if (err) return done(err)
 						if (!node) return done('Error: unable to find this entry for the schemaKey')
 
 						// Validate the key
-						var validation = validateKeySchema(normalizeKey(next.key), node.value, next.writerAddress);
+						var validation = validateKeySchema(normalizeKey(next.key), node.value.keySchema, next.writerAddress);
 						if (validation.error) {
 							return done('Error: ' + validation.errorMessage);
 						}
-						put(self, clock, heads, normalizeKey(next.key), next.value, next.writerSignature, next.writerAddress, {schemaKey: next.schemaKey}, loop)
+
+						// Validate the val if there is valueValidationKey
+						if (node.value.valueValidationKey) {
+							try {
+								validation = await validateEntryValue(self, heads, next.value, node.value.valueValidationKey);
+								if (!validation.error) {
+									put(self, clock, heads, normalizeKey(next.key), next.value, next.writerSignature, next.writerAddress, {schemaKey: next.schemaKey}, loop)
+								}
+							} catch (e) {
+								return process.nextTick(cb, new Error('Error: ' + e.errorMessage));
+							}
+						} else {
+							put(self, clock, heads, normalizeKey(next.key), next.value, next.writerSignature, next.writerAddress, {schemaKey: next.schemaKey}, loop)
+						}
 					})
 				}
 			}
@@ -175,7 +190,7 @@ AODB.prototype.put = function (key, val, writerSignature, writerAddress, opts, c
 
 	this._lock(function (release) {
 		var clock = self._clock()
-		self._getHeads(false, function (err, heads) {
+		self._getHeads(false, async function (err, heads) {
 			if (err) return unlock(err)
 
 			// Perform writerSignature validation IFF key, writerSignature and writerAddress exist
@@ -192,13 +207,15 @@ AODB.prototype.put = function (key, val, writerSignature, writerAddress, opts, c
 					// Schema is not rewriteable
 					opts.noUpdate = true
 
-					// Validate the val
-					var validation = validateSchemaVal(key, val);
-					if (validation.error) {
-						return unlock('Error: ' + validation.errorMessage);
+					// Validate the schema val
+					try {
+						var validation = await validateSchemaVal(self, heads, key, val);
+						if (!validation.error) {
+							put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock)
+						}
+					} catch (e) {
+						return process.nextTick(cb, new Error(e.errorMessage));
 					}
-
-					put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock)
 				} else if (opts && opts.delete === true) {
 					// If deleting an entry
 					put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock)
@@ -208,16 +225,28 @@ AODB.prototype.put = function (key, val, writerSignature, writerAddress, opts, c
 						return unlock('Error: missing the schemaKey option for this entry');
 					}
 					// Get the schema
-					get(self, heads, normalizeKey(opts.schemaKey), function (err, node) {
+					get(self, heads, normalizeKey(opts.schemaKey), async function (err, node) {
 						if (err) return unlock(err)
 						if (!node) return unlock('Error: unable to find this entry for the schemaKey')
 
 						// Validate the key
-						var validation = validateKeySchema(normalizeKey(key), node.value, writerAddress);
+						var validation = validateKeySchema(normalizeKey(key), node.value.keySchema, writerAddress);
 						if (validation.error) {
 							return unlock('Error: ' + validation.errorMessage);
 						}
-						put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock)
+						// Validate the val if there is valueValidationKey
+						if (node.value.valueValidationKey) {
+							try {
+								validation = await validateEntryValue(self, heads, val, node.value.valueValidationKey);
+								if (!validation.error) {
+									put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock)
+								}
+							} catch (e) {
+								return process.nextTick(cb, new Error('Error: ' + e.errorMessage));
+							}
+						} else {
+							put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock)
+						}
 					})
 				}
 			} else {
@@ -777,6 +806,13 @@ AODB.prototype.createSignHash = function (key, val) {
 	return EthCrypto.hash.keccak256(signData);
 }
 
+AODB.prototype.maxLength140 = function (value) {
+	if (value.length > 140) {
+		return { error: true, errorMessage: 'Value can not exceed 140 chars' };
+	}
+	return { error: false, errorMessage: '' };
+}
+
 function Writer (db, feed) {
 	events.EventEmitter.call(this)
 
@@ -1192,30 +1228,34 @@ function inspect () {
  *			keyValidation: pointerToLibraryWithRelevantVariables
  *		}
  */
-function validateSchemaVal(key, val) {
-	if (!key || typeof(val) !== 'object')
-		return { error: true, errorMessage: 'Missing key/val value' };
-	if (!val.hasOwnProperty('keySchema') || !val.hasOwnProperty('valueValidationKey') || !val.hasOwnProperty('keyValidation'))
-		return { error: true, errorMessage: 'val is missing keySchema / valueValidationKey / keyValidation property' };
-	if (normalizeKey(key) !== 'schema/' + normalizeKey(val.keySchema))
-		return { error: true, errorMessage: 'key does not have the correct schema structure' };
-	if (val.valueValidationKey) {
-		get(this, heads, normalizeKey(val.validationKey), function (err, node) {
-			if (err)
-				return { error: true, errorMessage: err };
-			if (!node)
-				return { error: true, errorMessage: 'Unable to find valueValidationKey entry' };
-		});
-	}
-	return { error: false, errorMessage: '' };
+function validateSchemaVal(self, heads, key, val) {
+	return new Promise((fulfill, reject) => {
+		if (!key || typeof(val) !== 'object')
+			reject({ error: true, errorMessage: 'Missing key/val value' });
+		if (!val.hasOwnProperty('keySchema') || !val.hasOwnProperty('valueValidationKey') || !val.hasOwnProperty('keyValidation'))
+			reject({ error: true, errorMessage: 'val is missing keySchema / valueValidationKey / keyValidation property' });
+		if (normalizeKey(key) !== 'schema/' + normalizeKey(val.keySchema))
+			reject({ error: true, errorMessage: 'key does not have the correct schema structure' });
+		if (val.valueValidationKey) {
+			get(self, heads, normalizeKey(val.valueValidationKey), function (err, node) {
+				if (err)
+					reject({ error: true, errorMessage: err });
+				if (!node)
+					reject({ error: true, errorMessage: 'Unable to find valueValidationKey entry' });
+				fulfill({ error: false, errorMessage: '' });
+			});
+		} else {
+			fulfill({ error: false, errorMessage: '' });
+		}
+	});
 }
 
 /**
  * @dev Check whether or not a key follows the schema structure
  */
-function validateKeySchema(key, schemaObj, writerAddress) {
+function validateKeySchema(key, keySchema, writerAddress) {
 	var splitKey = key.split('/');
-	var splitKeySchema = schemaObj.keySchema.split('/');
+	var splitKeySchema = keySchema.split('/');
 
 	if (splitKey.length != splitKeySchema.length)
 		return { error: true, errorMessage: 'key has incorrect space length' };
@@ -1229,4 +1269,24 @@ function validateKeySchema(key, schemaObj, writerAddress) {
 			return { error: true, errorMessage: 'key\'s space not match. key => ' + splitKey[i] + '. schema => ' + splitKeySchema[i] };
 	}
 	return { error: false, errorMessage: '' };
+}
+
+/**
+ * @dev Check whether or not the entry value needs specific validation
+ */
+function validateEntryValue(self, heads, value, valueValidationKey) {
+	return new Promise((fulfill, reject) => {
+		get(self, heads, normalizeKey(valueValidationKey), function (err, node) {
+			if (err)
+				reject({ error: true, errorMessage: err });
+			if (!node)
+				reject({ error: true, errorMessage: 'Unable to find valueValidationKey entry' });
+			const {error, errorMessage} = self[node.value](value);
+			if (error) {
+				reject({ error, errorMessage });
+			} else {
+				fulfill({ error, errorMessage });
+			}
+		});
+	});
 }
