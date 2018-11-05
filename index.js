@@ -252,8 +252,8 @@ AODB.prototype.put = function (key, val, writerSignature, writerAddress, opts, c
 				}
 			} else {
 				// We don't need writerSignature validation when authorizing empty key
-				// i.e at AODB.prototype.authorize = function (key, cb) {}
-				put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock)
+				// i.e self.put('', null, '', '', cb) inside AODB.prototype.authorize
+				put(self, clock, heads, '', null, '', '', opts, unlock)
 			}
 		})
 
