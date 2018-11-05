@@ -8,9 +8,9 @@ const { privateKey: privateKeyB, publicKey: writerAddressB } = EthCrypto.createI
 
 tape('authorized writer passes "authorized" api', function (t) {
 	create.two(function (a, b) {
-		const schemaKey = "schema/%writerAddress%/foo";
+		const schemaKey = "schema/foo";
 		const schemaValue = {
-			keySchema: "%writerAddress%/foo",
+			keySchema: "foo",
 			valueValidationKey: "",
 			keyValidation: ""
 		};
@@ -18,7 +18,7 @@ tape('authorized writer passes "authorized" api', function (t) {
 		a.addSchema(schemaKey, schemaValue, writerSignatureA, writerAddressA, (err) => {
 			t.error(err)
 
-			const key = writerAddressA + '/foo';
+			const key = 'foo';
 			const value = 'bar';
 			writerSignatureA = EthCrypto.sign(privateKeyA, a.createSignHash(key, value));
 			a.put(key, value, writerSignatureA, writerAddressA, { schemaKey }, (err) => {
@@ -39,9 +39,9 @@ tape('authorized writer passes "authorized" api', function (t) {
 
 tape('authorized writer passes "authorized" api', function (t) {
 	create.two(function (a, b) {
-		const schemaKey = "schema/%writerAddress%/foo";
+		const schemaKey = "schema/foo";
 		const schemaValue = {
-			keySchema: "%writerAddress%/foo",
+			keySchema: "foo",
 			valueValidationKey: "",
 			keyValidation: ""
 		};
@@ -49,7 +49,7 @@ tape('authorized writer passes "authorized" api', function (t) {
 		b.addSchema(schemaKey, schemaValue, writerSignatureB, writerAddressB, (err) => {
 			t.error(err)
 
-			const key = writerAddressB + '/foo';
+			const key = 'foo';
 			const value = 'bar';
 			writerSignatureB = EthCrypto.sign(privateKeyB, b.createSignHash(key, value));
 			b.put(key, value, writerSignatureB, writerAddressB, { schemaKey }, (err) => {
@@ -87,9 +87,9 @@ tape('local unauthorized writes =/> authorized', function (t) {
 	a.ready(function () {
 		const b = create.one(a.key)
 		b.ready(function () {
-			const schemaKey = "schema/%writerAddress%/foo";
+			const schemaKey = "schema/foo";
 			const schemaValue = {
-				keySchema: "%writerAddress%/foo",
+				keySchema: "foo",
 				valueValidationKey: "",
 				keyValidation: ""
 			};
@@ -97,7 +97,7 @@ tape('local unauthorized writes =/> authorized', function (t) {
 			b.addSchema(schemaKey, schemaValue, writerSignatureB, writerAddressB, (err) => {
 				t.error(err)
 
-				const key = writerAddressB + '/foo';
+				const key = 'foo';
 				const value = 'bar';
 				writerSignatureB = EthCrypto.sign(privateKeyB, b.createSignHash(key, value));
 				b.put(key, value, writerSignatureB, writerAddressB, { schemaKey }, (err) => {
@@ -125,9 +125,9 @@ tape('unauthorized writer doing a put after replication', function (t) {
 		const b = create.one(a.key)
 		b.ready(function () {
 			replicate(a, b, function () {
-				const schemaKey = "schema/%writerAddress%/foo";
+				const schemaKey = "schema/foo";
 				const schemaValue = {
-					keySchema: "%writerAddress%/foo",
+					keySchema: "foo",
 					valueValidationKey: "",
 					keyValidation: ""
 				};
@@ -135,7 +135,7 @@ tape('unauthorized writer doing a put after replication', function (t) {
 				b.addSchema(schemaKey, schemaValue, writerSignatureB, writerAddressB, (err) => {
 					t.error(err)
 
-					const key = writerAddressB + '/foo';
+					const key = 'foo';
 					const value = 'bar';
 					writerSignatureB = EthCrypto.sign(privateKeyB, b.createSignHash(key, value));
 					b.put(key, value, writerSignatureB, writerAddressB, { schemaKey }, (err) => {
@@ -151,9 +151,9 @@ tape('unauthorized writer doing a put after replication', function (t) {
 tape('unauthorized writer fails "authorized" after some writes', function (t) {
 	const a = create.one()
 	a.ready(function () {
-		const schemaKey = "schema/%writerAddress%/foo";
+		const schemaKey = "schema/foo";
 		const schemaValue = {
-			keySchema: "%writerAddress%/foo",
+			keySchema: "foo",
 			valueValidationKey: "",
 			keyValidation: ""
 		};
@@ -162,10 +162,10 @@ tape('unauthorized writer fails "authorized" after some writes', function (t) {
 			t.error(err)
 
 			run(
-				cb => a.put(writerAddressA + '/foo', 'bar', EthCrypto.sign(privateKeyA, a.createSignHash(writerAddressA + '/foo', 'bar')), writerAddressA, { schemaKey }, cb),
-				cb => a.put(writerAddressA + '/foo', 'bar2', EthCrypto.sign(privateKeyA, a.createSignHash(writerAddressA + '/foo', 'bar2')), writerAddressA, { schemaKey}, cb),
-				cb => a.put(writerAddressA + '/foo', 'bar3', EthCrypto.sign(privateKeyA, a.createSignHash(writerAddressA + '/foo', 'bar3')), writerAddressA, { schemaKey }, cb),
-				cb => a.put(writerAddressA + '/foo', 'bar4', EthCrypto.sign(privateKeyA, a.createSignHash(writerAddressA + '/foo', 'bar4')), writerAddressA, { schemaKey }, cb),
+				cb => a.put('foo', 'bar', EthCrypto.sign(privateKeyA, a.createSignHash('foo', 'bar')), writerAddressA, { schemaKey }, cb),
+				cb => a.put('foo', 'bar2', EthCrypto.sign(privateKeyA, a.createSignHash('foo', 'bar2')), writerAddressA, { schemaKey }, cb),
+				cb => a.put('foo', 'bar3', EthCrypto.sign(privateKeyA, a.createSignHash('foo', 'bar3')), writerAddressA, { schemaKey }, cb),
+				cb => a.put('foo', 'bar4', EthCrypto.sign(privateKeyA, a.createSignHash('foo', 'bar4')), writerAddressA, { schemaKey }, cb),
 				done
 			)
 
@@ -191,9 +191,9 @@ tape('authorized is consistent', function (t) {
 
 	const a = create.one(null, {contentFeed: true})
 	a.ready(function () {
-		const schemaKeyA = "schema/%writerAddress%/foo";
+		const schemaKeyA = "schema/foo";
 		const schemaValueA = {
-			keySchema: "%writerAddress%/foo",
+			keySchema: "foo",
 			valueValidationKey: "",
 			keyValidation: ""
 		};
@@ -203,9 +203,9 @@ tape('authorized is consistent', function (t) {
 
 			const b = create.one(a.key, {contentFeed: true, latency: 10})
 
-			const schemaKeyB = "schema/%writerAddress%/bar";
+			const schemaKeyB = "schema/bar";
 			const schemaValueB = {
-				keySchema: "%writerAddress%/bar",
+				keySchema: "bar",
 				valueValidationKey: "",
 				keyValidation: ""
 			};
@@ -214,8 +214,8 @@ tape('authorized is consistent', function (t) {
 				t.error(err)
 
 				run(
-					cb => b.put(writerAddressB + '/bar', 'foo', EthCrypto.sign(privateKeyB, b.createSignHash(writerAddressB + '/bar', 'foo')), writerAddressB, { schemaKey: schemaKeyB },  cb),
-					cb => a.put(writerAddressA + '/foo', 'bar', EthCrypto.sign(privateKeyA, a.createSignHash(writerAddressA + '/foo', 'bar')), writerAddressA, { schemaKey: schemaKeyA }, cb),
+					cb => b.put('bar', 'foo', EthCrypto.sign(privateKeyB, b.createSignHash('bar', 'foo')), writerAddressB, { schemaKey: schemaKeyB },  cb),
+					cb => a.put('foo', 'bar', EthCrypto.sign(privateKeyA, a.createSignHash('foo', 'bar')), writerAddressA, { schemaKey: schemaKeyA }, cb),
 					auth,
 					replicate.bind(null, a, b),
 					done
