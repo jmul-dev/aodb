@@ -48,6 +48,7 @@
     "thunky": "^1.0.2",
     "unordered-array-remove": "^1.0.2",
     "unordered-set": "^2.0.0",
+    "validate.js": "^0.12.0",
     "varint": "^5.0.0"
   },
   "deprecated": false,
