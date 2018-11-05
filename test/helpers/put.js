@@ -1,6 +1,6 @@
 var EthCrypto = require('eth-crypto');
 
-module.exports = function (db, privateKey, publicKey, list, cb) {
+module.exports = function (db, privateKey, writerAddress, list, opts, cb) {
 	var i = 0
 	loop(null)
 
@@ -12,6 +12,6 @@ module.exports = function (db, privateKey, publicKey, list, cb) {
 		if (typeof next === 'string') next = {key: next, value: next}
 
 		var signature = EthCrypto.sign(privateKey, db.createSignHash(next.key, next.value));
-		db.put(next.key, next.value, signature, publicKey, loop)
+		db.put(next.key, next.value, signature, writerAddress, opts, loop)
 	}
 }
