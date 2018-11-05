@@ -145,6 +145,7 @@ AODB.prototype.batch = function (batch, cb) {
 					get(self, heads, normalizeKey(next.schemaKey), async function (err, node) {
 						if (err) return done(err)
 						if (!node) return done('Error: unable to find this entry for the schemaKey')
+						if (node.length) node = node[0];
 
 						// Validate the key
 						var validation = validateKeySchema(normalizeKey(next.key), node.value.keySchema, next.writerAddress);
@@ -229,6 +230,7 @@ AODB.prototype.put = function (key, val, writerSignature, writerAddress, opts, c
 					get(self, heads, normalizeKey(opts.schemaKey), async function (err, node) {
 						if (err) return unlock(err)
 						if (!node) return unlock('Error: unable to find this entry for the schemaKey')
+						if (node.length) node = node[0];
 
 						// Validate the key
 						var validation = validateKeySchema(normalizeKey(key), node.value.keySchema, writerAddress);
@@ -1291,6 +1293,7 @@ function validateEntryValue(self, heads, value, valueValidationKey) {
 				reject({ error: true, errorMessage: err });
 			if (!node)
 				reject({ error: true, errorMessage: 'Unable to find valueValidationKey entry' });
+			if (node.length) node = node[0];
 			const {error, errorMessage} = self[node.value](value);
 			if (error) {
 				reject({ error, errorMessage });
