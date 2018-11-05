@@ -11,10 +11,10 @@ const db = aodb("./my.db", {
 	reduce: (a, b) => a
 });
 
-/***** Add a Schema *****/
-let schemaKey = "schema/content/*/review/%writerAddress%";
+/***** HyperDb example *****/
+let schemaKey = "schema/hello";
 let schemaValue = {
-	keySchema: "content/*/review/%writerAddress%",
+	keySchema: "hello",
 	valueValidationKey: "",
 	keyValidation: ""
 };
@@ -27,11 +27,43 @@ db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
 		console.log("Add Schema:\n" + schemaKey + " --> " + JSON.stringify(node.value) + "\n");
 
 		/***** Put *****/
+		let key = "hello";
+		let value = "world";
+		let writerSignature2 = EthCrypto.sign(privateKey2, db.createSignHash(key, value));
+
+		db.put(key, value, writerSignature2, writerAddress2, { schemaKey }, (err) => {
+			if (err) throw err;
+			db.get(key, (err, node) => {
+				if (err) throw err;
+				console.log("Put:\n" + key + " --> " + node.value + "\n");
+			});
+		});
+	});
+});
+
+/***** AODB example *****/
+
+/***** Add a Schema *****/
+let contentSchemaKey = "schema/content/*/review/%writerAddress%";
+let contentSchemaValue = {
+	keySchema: "content/*/review/%writerAddress%",
+	valueValidationKey: "",
+	keyValidation: ""
+};
+let contentWriterSignature = EthCrypto.sign(privateKey, db.createSignHash(contentSchemaKey, contentSchemaValue));
+
+db.addSchema(contentSchemaKey, contentSchemaValue, contentWriterSignature, writerAddress, (err) => {
+	if (err) throw err;
+	db.get(contentSchemaKey, (err, node) => {
+		if (err) throw err;
+		console.log("Add Schema:\n" + contentSchemaKey + " --> " + JSON.stringify(node.value) + "\n");
+
+		/***** Put *****/
 		let key = "content/0x123456789/review/" + writerAddress2;
 		let value = "Love the content";
 		let writerSignature2 = EthCrypto.sign(privateKey2, db.createSignHash(key, value));
 
-		db.put(key, value, writerSignature2, writerAddress2, { schemaKey }, (err) => {
+		db.put(key, value, writerSignature2, writerAddress2, { schemaKey: contentSchemaKey }, (err) => {
 			if (err) throw err;
 			db.get(key, (err, node) => {
 				if (err) throw err;
@@ -68,7 +100,7 @@ db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
 					db.createSignHash("content/0x123456789/review/" + writerAddress3, "Nice video")
 				),
 				writerAddress: writerAddress3,
-				schemaKey
+				schemaKey: contentSchemaKey
 			},
 			{
 				type: "put",
@@ -79,7 +111,7 @@ db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
 					db.createSignHash("content/0x123456789/review/" + writerAddress4, "Please upload more video like this!")
 				),
 				writerAddress: writerAddress4,
-				schemaKey
+				schemaKey: contentSchemaKey
 			},
 			{
 				type: "add-schema",
