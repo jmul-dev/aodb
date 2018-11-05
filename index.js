@@ -27,6 +27,7 @@ var watch = require('./lib/watch')
 var normalizeKey = require('./lib/normalize')
 var derive = require('./lib/derive')
 var EthCrypto = require('eth-crypto');
+var validate = require('validate.js');
 
 module.exports = AODB
 
@@ -806,9 +807,18 @@ AODB.prototype.createSignHash = function (key, val) {
 	return EthCrypto.hash.keccak256(signData);
 }
 
-AODB.prototype.maxLength140 = function (value) {
-	if (value.length > 140) {
-		return { error: true, errorMessage: 'Value can not exceed 140 chars' };
+/**
+ * Validation functions
+ */
+AODB.prototype.validateMaxLength140 = function (value) {
+	var constraints = {
+		value: {
+			length: { maximum: 140}
+		}
+	};
+	var error = validate({value}, constraints);
+	if (error && error.value) {
+		return { error: true, errorMessage: error.value[0] };
 	}
 	return { error: false, errorMessage: '' };
 }

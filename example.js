@@ -123,7 +123,7 @@ db.addSchema(validationSchemaKey, validationSchemaValue, validationWriterSignatu
 		console.log("Add Schema:\n" + validationSchemaKey + " --> " + JSON.stringify(node.value) + "\n");
 
 		let key = "validate/type/maxLength140";
-		let value = "maxLength140";
+		let value = "validateMaxLength140";
 		let writerSignature = EthCrypto.sign(privateKey, db.createSignHash(key, value));
 
 		db.put(key, value, writerSignature, writerAddress, { schemaKey: validationSchemaKey }, (err) => {
