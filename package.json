@@ -54,7 +54,7 @@
   "deprecated": false,
   "description": "Distributed scalable database",
   "devDependencies": {
-    "prettier": "^1.12.0",
+    "prettier": "^1.14.3",
     "protocol-buffers": "^4.0.4",
     "random-access-latency": "^1.0.0",
     "random-access-memory": "^3.0.0",
