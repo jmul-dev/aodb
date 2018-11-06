@@ -205,6 +205,8 @@ AODB.prototype.batch = function (batch, cb) {
 					} else {
 						put(self, clock, heads, normalizeKey(next.key), next.value, next.writerSignature, next.writerAddress, {schemaKey: next.schemaKey}, loop)
 					}
+				} else {
+					throwError(cb, 'Error: missing the type option for this entry');
 				}
 			}
 
