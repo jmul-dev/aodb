@@ -28,6 +28,8 @@ var normalizeKey = require('./lib/normalize')
 var derive = require('./lib/derive')
 var EthCrypto = require('eth-crypto');
 var validate = require('validate.js');
+const { promisify } = require('es6-promisify');
+const promisifyGet = promisify(get);
 
 module.exports = AODB
 
@@ -106,7 +108,7 @@ AODB.prototype.batch = function (batch, cb) {
 			loop(null)
 
 			async function loop (err, node) {
-				if (err) return done(err)
+				if (err) throwError(cb, err)
 
 				if (node) {
 					node.path = hash(node.key, true)
@@ -122,51 +124,51 @@ AODB.prototype.batch = function (batch, cb) {
 
 				var signer = EthCrypto.recoverPublicKey(next.writerSignature, self.createSignHash(next.key, next.value));
 				if (signer !== next.writerAddress) {
-					return done('Error: signer does not match address and therefore does not have access to this record');
+					throwError(cb, 'Error: signer does not match address and therefore does not have access to this record');
 				}
 
 				if (next.type === 'add-schema') {
 					// Validate the schema val
 					try {
-						var validation = await validateSchemaVal(self, heads, next.key, next.value);
-						if (!validation.error) {
-							put(self, clock, heads, normalizeKey(next.key), next.value, next.writerSignature, next.writerAddress, {isSchema: true, noUpdate: true}, loop)
+						const validation = await validateSchemaVal(self, heads, next.key, next.value);
+						if (validation.error) {
+							throwError(cb, 'Error: ' + validation.errorMessage);
 						}
+						put(self, clock, heads, normalizeKey(next.key), next.value, next.writerSignature, next.writerAddress, {isSchema: true, noUpdate: true}, loop)
 					} catch (e) {
-						return process.nextTick(cb, new Error('Error: ' + e.errorMessage))
+						throwError(cb, e);
 					}
 				} else if (next.type === 'del') {
 					put(self, clock, heads, normalizeKey(next.key), next.value, next.writerSignature, next.writerAddress, {delete: next.type === 'del'}, loop)
 				} else if (next.type === 'put') {
 					if (!next.schemaKey) {
-						return done('Error: missing the schemaKey option for this entry');
+						throwError(cb, 'Error: missing the schemaKey option for this entry');
 					}
 					// Get the schema
-					get(self, heads, normalizeKey(next.schemaKey), async function (err, node) {
-						if (err) return done(err)
-						if (!node) return done('Error: unable to find this entry for the schemaKey')
+					try {
+						const node = await promisifyGet(self, heads, normalizeKey(next.schemaKey));
+						if (!node) throwError(cb, 'Error: unable to find this entry for the schemaKey')
 						if (node.length) node = node[0];
 
 						// Validate the key
-						var validation = validateKeySchema(normalizeKey(next.key), node.value.keySchema, next.writerAddress);
+						let validation = validateKeySchema(normalizeKey(next.key), node.value.keySchema, next.writerAddress);
 						if (validation.error) {
-							return done('Error: ' + validation.errorMessage);
+							throwError(cb, 'Error: ' + validation.errorMessage);
 						}
 
 						// Validate the val if there is valueValidationKey
 						if (node.value.valueValidationKey) {
-							try {
-								validation = await validateEntryValue(self, heads, next.value, node.value.valueValidationKey);
-								if (!validation.error) {
-									put(self, clock, heads, normalizeKey(next.key), next.value, next.writerSignature, next.writerAddress, {schemaKey: next.schemaKey}, loop)
-								}
-							} catch (e) {
-								return process.nextTick(cb, new Error('Error: ' + e.errorMessage));
+							validation = await validateEntryValue(self, heads, next.value, node.value.valueValidationKey);
+							if (validation.error) {
+								throwError(cb, 'Error: ' + validation.errorMessage);
 							}
+							put(self, clock, heads, normalizeKey(next.key), next.value, next.writerSignature, next.writerAddress, {schemaKey: next.schemaKey}, loop)
 						} else {
 							put(self, clock, heads, normalizeKey(next.key), next.value, next.writerSignature, next.writerAddress, {schemaKey: next.schemaKey}, loop)
 						}
-					})
+					} catch (e) {
+						throwError(cb, e);
+					}
 				}
 			}
 
@@ -185,7 +187,7 @@ AODB.prototype.put = function (key, val, writerSignature, writerAddress, opts, c
 	if (!cb) cb = noop
 
 	if (this._checkout) {
-		return process.nextTick(cb, new Error('Cannot put on a checkout'))
+		throwError(cb, 'Cannot put on a checkout')
 	}
 
 	var self = this
@@ -193,7 +195,7 @@ AODB.prototype.put = function (key, val, writerSignature, writerAddress, opts, c
 	this._lock(function (release) {
 		var clock = self._clock()
 		self._getHeads(false, async function (err, heads) {
-			if (err) return unlock(err)
+			if (err) throwError(cb, err)
 
 			// Perform writerSignature validation IFF key, writerSignature and writerAddress exist
 			if (key && writerSignature && writerAddress) {
@@ -201,7 +203,7 @@ AODB.prototype.put = function (key, val, writerSignature, writerAddress, opts, c
 
 				// Validate the writerSignature
 				if (signer !== writerAddress) {
-					return unlock('Error: signer does not match address and therefore does not have access to this record');
+					throwError(cb, 'Error: signer does not match address and therefore does not have access to this record');
 				}
 
 				// If writing a schema
@@ -211,12 +213,13 @@ AODB.prototype.put = function (key, val, writerSignature, writerAddress, opts, c
 
 					// Validate the schema val
 					try {
-						var validation = await validateSchemaVal(self, heads, key, val);
-						if (!validation.error) {
-							put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock)
+						const validation = await validateSchemaVal(self, heads, key, val);
+						if (validation.error) {
+							throwError(cb, 'Error: ' + validation.errorMessage);
 						}
+						put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock)
 					} catch (e) {
-						return process.nextTick(cb, new Error(e.errorMessage));
+						throwError(cb, e);
 					}
 				} else if (opts && opts.delete === true) {
 					// If deleting an entry
@@ -224,33 +227,33 @@ AODB.prototype.put = function (key, val, writerSignature, writerAddress, opts, c
 				} else {
 					// If not writing a schema, then a schemaKey for this key needs to be provided
 					if (opts && !opts.schemaKey) {
-						return unlock('Error: missing the schemaKey option for this entry');
+						throwError(cb, 'Error: missing the schemaKey option for this entry');
 					}
 					// Get the schema
-					get(self, heads, normalizeKey(opts.schemaKey), async function (err, node) {
-						if (err) return unlock(err)
-						if (!node) return unlock('Error: unable to find this entry for the schemaKey')
+					try {
+						const node = await promisifyGet(self, heads, normalizeKey(opts.schemaKey));
+						if (!node) throwError(cb, 'Error: unable to find this entry for the schemaKey')
 						if (node.length) node = node[0];
 
 						// Validate the key
-						var validation = validateKeySchema(normalizeKey(key), node.value.keySchema, writerAddress);
+						let validation = validateKeySchema(normalizeKey(key), node.value.keySchema, writerAddress);
 						if (validation.error) {
-							return unlock('Error: ' + validation.errorMessage);
+							throwError(cb, 'Error: ' + validation.errorMessage);
 						}
+
 						// Validate the val if there is valueValidationKey
 						if (node.value.valueValidationKey) {
-							try {
-								validation = await validateEntryValue(self, heads, val, node.value.valueValidationKey);
-								if (!validation.error) {
-									put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock)
-								}
-							} catch (e) {
-								return process.nextTick(cb, new Error('Error: ' + e.errorMessage));
+							validation = await validateEntryValue(self, heads, val, node.value.valueValidationKey);
+							if (validation.error) {
+								throwError(cb, 'Error: ' + validation.errorMessage);
 							}
+							put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock)
 						} else {
 							put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock)
 						}
-					})
+					} catch (e) {
+						throwError(cb, e);
+					}
 				}
 			} else {
 				// We don't need writerSignature validation when authorizing empty key
@@ -1240,39 +1243,38 @@ function inspect () {
  *			keyValidation: pointerToLibraryWithRelevantVariables
  *		}
  */
-function validateSchemaVal(self, heads, key, val) {
-	return new Promise((fulfill, reject) => {
-		if (!key || typeof(val) !== 'object')
-			reject({ error: true, errorMessage: 'Missing key/val value' });
-		if (!val.hasOwnProperty('keySchema') || !val.hasOwnProperty('valueValidationKey') || !val.hasOwnProperty('keyValidation'))
-			reject({ error: true, errorMessage: 'val is missing keySchema / valueValidationKey / keyValidation property' });
-		if (normalizeKey(key) !== 'schema/' + normalizeKey(val.keySchema))
-			reject({ error: true, errorMessage: 'key does not have the correct schema structure' });
-		if (val.valueValidationKey) {
-			get(self, heads, normalizeKey(val.valueValidationKey), function (err, node) {
-				if (err)
-					reject({ error: true, errorMessage: err });
-				if (!node)
-					reject({ error: true, errorMessage: 'Unable to find valueValidationKey entry' });
-				fulfill({ error: false, errorMessage: '' });
-			});
-		} else {
-			fulfill({ error: false, errorMessage: '' });
+const validateSchemaVal = async (self, heads, key, val) => {
+	if (!key || typeof(val) !== 'object')
+		return { error: true, errorMessage: 'Missing key/val value' };
+	if (!val.hasOwnProperty('keySchema') || !val.hasOwnProperty('valueValidationKey') || !val.hasOwnProperty('keyValidation'))
+		return { error: true, errorMessage: 'val is missing keySchema / valueValidationKey / keyValidation property' };
+	if (normalizeKey(key) !== 'schema/' + normalizeKey(val.keySchema))
+		return { error: true, errorMessage: 'key does not have the correct schema structure' };
+	if (val.valueValidationKey) {
+		try {
+			const node = await promisifyGet(self, heads, normalizeKey(val.valueValidationKey));
+			if (!node)
+				return { error: true, errorMessage: 'Unable to find valueValidationKey entry' };
+			return { error: false, errorMessage: '' };
+		} catch (e) {
+			return { error: true, errorMessage: e };
 		}
-	});
+	} else {
+		return { error: false, errorMessage: '' };
+	}
 }
 
 /**
  * @dev Check whether or not a key follows the schema structure
  */
-function validateKeySchema(key, keySchema, writerAddress) {
-	var splitKey = key.split('/');
-	var splitKeySchema = keySchema.split('/');
+const validateKeySchema = (key, keySchema, writerAddress) => {
+	const splitKey = key.split('/');
+	const splitKeySchema = keySchema.split('/');
 
 	if (splitKey.length != splitKeySchema.length)
 		return { error: true, errorMessage: 'key has incorrect space length' };
 
-	for (var i=0; i < splitKeySchema.length; i++) {
+	for (let i=0; i < splitKeySchema.length; i++) {
 		if (splitKeySchema[i] === '*') continue
 		if (splitKeySchema[i] === '%writerAddress%' && splitKey[i] !== writerAddress) {
 			return { error: true, errorMessage: 'key\'s writerAddress does not match the address' };
@@ -1281,25 +1283,27 @@ function validateKeySchema(key, keySchema, writerAddress) {
 			return { error: true, errorMessage: 'key\'s space not match. key => ' + splitKey[i] + '. schema => ' + splitKeySchema[i] };
 	}
 	return { error: false, errorMessage: '' };
-}
+};
 
 /**
  * @dev Check whether or not the entry value needs specific validation
  */
-function validateEntryValue(self, heads, value, valueValidationKey) {
-	return new Promise((fulfill, reject) => {
-		get(self, heads, normalizeKey(valueValidationKey), function (err, node) {
-			if (err)
-				reject({ error: true, errorMessage: err });
-			if (!node)
-				reject({ error: true, errorMessage: 'Unable to find valueValidationKey entry' });
-			if (node.length) node = node[0];
-			const {error, errorMessage} = self[node.value](value);
-			if (error) {
-				reject({ error, errorMessage });
-			} else {
-				fulfill({ error, errorMessage });
-			}
-		});
-	});
-}
+const validateEntryValue = async (self, heads, value, valueValidationKey) => {
+	try {
+		const node = await promisifyGet(self, heads, normalizeKey(valueValidationKey));
+		if (!node)
+			return { error: true, errorMessage: 'Unable to find valueValidationKey entry' };
+		if (node.length) node = node[0];
+		const {error, errorMessage} = self[node.value](value);
+		return { error, errorMessage };
+	} catch (e) {
+		return {error: true, errorMessage: e};
+	}
+};
+
+/**
+ * @dev helper function to exit when there is an error
+ */
+const throwError = (cb, errorMessage) => {
+	return process.nextTick(cb, new Error(errorMessage));
+};
