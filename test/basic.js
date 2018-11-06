@@ -1,555 +1,922 @@
-var tape = require('tape')
-var Readable = require('stream').Readable
+const tape = require("tape");
+const Readable = require("stream").Readable;
 
-var create = require('./helpers/create')
-var run = require('./helpers/run')
+const create = require("./helpers/create");
+const run = require("./helpers/run");
 
-var EthCrypto = require('eth-crypto');
-var identity = EthCrypto.createIdentity();
+const EthCrypto = require("eth-crypto");
+const { privateKey, publicKey: writerAddress } = EthCrypto.createIdentity();
 
-tape('basic put/get', function (t) {
-	var db = create.one()
-	var key1 = identity.publicKey + '/hello';
-	var value1 = 'world';
+tape("basic put/get", (t) => {
+	const db = create.one();
+	const schemaKey = "schema/hello";
+	const schemaValue = {
+		keySchema: "hello",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+	let writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue));
+	db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
+		t.error(err);
+		const key = "hello";
+		const value = "world";
 
-	db.put(key1, value1, EthCrypto.sign(identity.privateKey, db.createSignHash(key1, value1)), identity.publicKey, function (err, node) {
-		t.same(node.key, key1)
-		t.same(node.value, value1)
-		t.error(err, 'no error')
-		db.get(key1, function (err, node) {
-			t.error(err, 'no error')
-			t.same(node.key, key1, 'same key')
-			t.same(node.value, value1, 'same value')
-			t.end()
-		})
-	})
-})
+		db.put(key, value, EthCrypto.sign(privateKey, db.createSignHash(key, value)), writerAddress, { schemaKey }, (err, node) => {
+			t.same(node.key, key);
+			t.same(node.value, value);
+			t.error(err, "no error");
+			db.get(key, (err, node) => {
+				t.error(err, "no error");
+				t.same(node.key, key, "same key");
+				t.same(node.value, value, "same value");
+				t.end();
+			});
+		});
+	});
+});
 
-tape('get on empty db', function (t) {
-	var db = create.one()
+tape("get on empty db", (t) => {
+	const db = create.one();
 
-	db.get('hello', function (err, node) {
-		t.error(err, 'no error')
-		t.same(node, null, 'node is not found')
-		t.end()
-	})
-})
+	db.get("hello", (err, node) => {
+		t.error(err, "no error");
+		t.same(node, null, "node is not found");
+		t.end();
+	});
+});
 
-tape('not found', function (t) {
-	var db = create.one()
-	var key1 = identity.publicKey + '/hello';
-	var value1 = 'world';
+tape("not found", (t) => {
+	const db = create.one();
+	const schemaKey = "schema/hello";
+	const schemaValue = {
+		keySchema: "hello",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+	let writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue));
+	db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
+		t.error(err);
 
-	db.put(key1, value1, EthCrypto.sign(identity.privateKey, db.createSignHash(key1, value1)), identity.publicKey, function (err, node) {
-		t.error(err, 'no error')
-		db.get('hej', function (err, node) {
-			t.error(err, 'no error')
-			t.same(node, null, 'node is not found')
-			t.end()
-		})
-	})
-})
+		const key = "hello";
+		const value = "world";
 
-tape('leading / is ignored', function (t) {
-	t.plan(7)
-	var db = create.one()
-	var key1 = identity.publicKey + '/hello';
-	var value1 = 'world';
+		db.put(key, value, EthCrypto.sign(privateKey, db.createSignHash(key, value)), writerAddress, { schemaKey }, (err, node) => {
+			t.error(err, "no error");
+			db.get("hej", (err, node) => {
+				t.error(err, "no error");
+				t.same(node, null, "node is not found");
+				t.end();
+			});
+		});
+	});
+});
 
-	db.put('/' + key1, value1, EthCrypto.sign(identity.privateKey, db.createSignHash('/' + key1, value1)), identity.publicKey, function (err, node) {
-		t.error(err, 'no error')
-		db.get('/' + key1, function (err, node) {
-			t.error(err, 'no error')
-			t.same(node.key, key1, 'same key')
-			t.same(node.value, value1, 'same value')
-		})
-		db.get(key1, function (err, node) {
-			t.error(err, 'no error')
-			t.same(node.key, key1, 'same key')
-			t.same(node.value, value1, 'same value')
-		})
-	})
-})
+tape("leading / is ignored", (t) => {
+	t.plan(8);
+	const db = create.one();
+	const schemaKey = "schema/hello";
+	const schemaValue = {
+		keySchema: "hello",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+	let writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue));
+	db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
+		t.error(err);
 
-tape('multiple put/get', function (t) {
-	t.plan(8)
+		const key = "/hello";
+		const value = "world";
 
-	var db = create.one()
-	var key1 = identity.publicKey + '/hello';
-	var value1 = 'world';
+		db.put(key, value, EthCrypto.sign(privateKey, db.createSignHash(key, value)), writerAddress, { schemaKey }, (err, node) => {
+			t.error(err, "no error");
+			db.get(key, (err, node) => {
+				t.error(err, "no error");
+				t.same(node.key, "hello", "same key");
+				t.same(node.value, value, "same value");
+			});
+			db.get("/hello", (err, node) => {
+				t.error(err, "no error");
+				t.same(node.key, "hello", "same key");
+				t.same(node.value, value, "same value");
+			});
+		});
+	});
+});
 
-	var key2 = identity.publicKey + '/world';
-	var value2 = 'hello';
+tape("multiple put/get", (t) => {
+	t.plan(9);
 
-	db.put(key1, value1, EthCrypto.sign(identity.privateKey, db.createSignHash(key1, value1)), identity.publicKey, function (err, node) {
-		t.error(err, 'no error')
-		db.put(key2, value2, EthCrypto.sign(identity.privateKey, db.createSignHash(key2, value2)), identity.publicKey, function (err, node) {
-			t.error(err, 'no error')
-			db.get(key1, function (err, node) {
-				t.error(err, 'no error')
-				t.same(node.key, key1, 'same key')
-				t.same(node.value, value1, 'same value')
-			})
-			db.get(key2, function (err, node) {
-				t.error(err, 'no error')
-				t.same(node.key, key2, 'same key')
-				t.same(node.value, value2, 'same value')
-			})
-		})
-	})
-})
+	const db = create.one();
+	const schemaKey = "schema/*";
+	const schemaValue = {
+		keySchema: "*",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+	let writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue));
+	db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
+		t.error(err, "no error");
 
-tape('overwrites', function (t) {
-	var db = create.one()
-	var key1 = identity.publicKey + '/hello';
-	var value1 = 'world';
+		const key1 = "hello";
+		const value1 = "world";
+		const key2 = "world";
+		const value2 = "hello";
 
-	db.put(key1, value1, EthCrypto.sign(identity.privateKey, db.createSignHash(key1, value1)), identity.publicKey, function (err, node) {
-		t.error(err, 'no error')
-		db.get(key1, function (err, node) {
-			t.error(err, 'no error')
-			t.same(node.key, key1, 'same key')
-			t.same(node.value, value1, 'same value')
-			value1 = 'verden'
-			db.put(key1, value1, EthCrypto.sign(identity.privateKey, db.createSignHash(key1, value1)), identity.publicKey, function (err, node) {
+		db.put(key1, value1, EthCrypto.sign(privateKey, db.createSignHash(key1, value1)), writerAddress, { schemaKey }, (err, node) => {
+			t.error(err, "no error");
+			db.put(key2, value2, EthCrypto.sign(privateKey, db.createSignHash(key2, value2)), writerAddress, { schemaKey }, (err, node) => {
+				t.error(err, "no error");
+				db.get(key1, (err, node) => {
+					t.error(err, "no error");
+					t.same(node.key, key1, "same key");
+					t.same(node.value, value1, "same value");
+				});
+				db.get(key2, (err, node) => {
+					t.error(err, "no error");
+					t.same(node.key, key2, "same key");
+					t.same(node.value, value2, "same value");
+				});
+			});
+		});
+	});
+});
 
-				t.error(err, 'no error')
-				db.get(key1, function (err, node) {
-					t.error(err, 'no error')
-					t.same(node.key, key1, 'same key')
-					t.same(node.value, value1, 'same value')
-					t.end()
-				})
-			})
-		})
-	})
-})
+tape("overwrites", (t) => {
+	const db = create.one();
+	const schemaKey = "schema/hello";
+	const schemaValue = {
+		keySchema: "hello",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+	let writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue));
+	db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
+		t.error(err);
 
-tape('put/gets namespaces', function (t) {
-	t.plan(8)
+		const key = "hello";
+		let value = "world";
 
-	var db = create.one()
-	var key1 = identity.publicKey + '/hello/world';
-	var value1 = 'world';
+		db.put(key, value, EthCrypto.sign(privateKey, db.createSignHash(key, value)), writerAddress, { schemaKey }, (err, node) => {
+			t.error(err, "no error");
+			db.get(key, (err, node) => {
+				t.error(err, "no error");
+				t.same(node.key, key, "same key");
+				t.same(node.value, value, "same value");
+				value = "verden";
+				db.put(key, value, EthCrypto.sign(privateKey, db.createSignHash(key, value)), writerAddress, { schemaKey }, (err, node) => {
+					t.error(err, "no error");
+					db.get(key, (err, node) => {
+						t.error(err, "no error");
+						t.same(node.key, key, "same key");
+						t.same(node.value, value, "same value");
+						t.end();
+					});
+				});
+			});
+		});
+	});
+});
 
-	var key2 = identity.publicKey + '/world';
-	var value2 = 'hello';
+tape("put/gets namespaces", (t) => {
+	t.plan(9);
 
-	db.put(key1 + '/world', value1, EthCrypto.sign(identity.privateKey, db.createSignHash(key1 + '/world', value1)), identity.publicKey, function (err, node) {
-		t.error(err, 'no error')
-		db.put(key2, value2, EthCrypto.sign(identity.privateKey, db.createSignHash(key2, value2)), identity.publicKey, function (err, node) {
-			t.error(err, 'no error')
-			db.get(key1 + '/world', function (err, node) {
-				t.error(err, 'no error')
-				t.same(node.key, key1 + '/world', 'same key')
-				t.same(node.value, value1, 'same value')
-			})
-			db.get(key2, function (err, node) {
-				t.error(err, 'no error')
-				t.same(node.key, key2, 'same key')
-				t.same(node.value, value2, 'same value')
-			})
-		})
-	})
-})
+	const db = create.one();
+	const schemaKey = "schema/hello/world";
+	const schemaValue = {
+		keySchema: "hello/world",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
 
-tape('put in tree', function (t) {
-	t.plan(8)
+	const schemaKey2 = "schema/world";
+	const schemaValue2 = {
+		keySchema: "world",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
 
-	var db = create.one()
-	var key1 = identity.publicKey + '/hello';
-	var value1 = 'a';
-	var key2 = identity.publicKey + '/hello/world';
-	var value2 = 'b';
-
-	db.put(key1, value1, EthCrypto.sign(identity.privateKey, db.createSignHash(key1, value1)), identity.publicKey, function (err, node) {
-		t.error(err, 'no error')
-		db.put(key2, value2, EthCrypto.sign(identity.privateKey, db.createSignHash(key2, value2)), identity.publicKey, function (err, node) {
-			t.error(err, 'no error')
-			db.get(key1, function (err, node) {
-				t.error(err, 'no error')
-				t.same(node.key, key1, 'same key')
-				t.same(node.value, value1, 'same value')
-			})
-			db.get(key2, function (err, node) {
-				t.error(err, 'no error')
-				t.same(node.key, key2, 'same key')
-				t.same(node.value, value2, 'same value')
-			})
-		})
-	})
-})
-
-tape('put in tree reverse order', function (t) {
-	t.plan(8)
-
-	var db = create.one()
-	var key1 = identity.publicKey + '/hello/world';
-	var value1 = 'b';
-	var key2 = identity.publicKey + '/hello';
-	var value2 = 'a';
-
-	db.put(key1, value1, EthCrypto.sign(identity.privateKey, db.createSignHash(key1, value1)), identity.publicKey, function (err, node) {
-		t.error(err, 'no error')
-		db.put(key2, value2, EthCrypto.sign(identity.privateKey, db.createSignHash(key2, value2)), identity.publicKey, function (err, node) {
-			t.error(err, 'no error')
-			db.get(key2, function (err, node) {
-				t.error(err, 'no error')
-				t.same(node.key, key2, 'same key')
-				t.same(node.value, value2, 'same value')
-			})
-			db.get(key1, function (err, node) {
-				t.error(err, 'no error')
-				t.same(node.key, key1, 'same key')
-				t.same(node.value, value1, 'same value')
-			})
-		})
-	})
-})
-
-tape('multiple put in tree', function (t) {
-	t.plan(13)
-
-	var db = create.one()
-	var key1 = identity.publicKey + '/hello/world';
-	var value1 = 'b';
-	var key2 = identity.publicKey + '/hello';
-	var value2 = 'a';
-	var key3 = identity.publicKey + '/hello/verden';
-	var value3 = 'c';
-
-	db.put(key1, value1, EthCrypto.sign(identity.privateKey, db.createSignHash(key1, value1)), identity.publicKey, function (err, node) {
-		t.error(err, 'no error')
-		db.put(key2, value2, EthCrypto.sign(identity.privateKey, db.createSignHash(key2, value2)), identity.publicKey, function (err, node) {
-			t.error(err, 'no error')
-			db.put(key3, value3, EthCrypto.sign(identity.privateKey, db.createSignHash(key3, value3)), identity.publicKey, function (err, node) {
-				t.error(err, 'no error')
-				value2 = 'd';
-				db.put(key2, value2, EthCrypto.sign(identity.privateKey, db.createSignHash(key2, value2)), identity.publicKey, function (err, node) {
-					t.error(err, 'no error')
-					db.get(key2, function (err, node) {
-						t.error(err, 'no error')
-						t.same(node.key, key2, 'same key')
-						t.same(node.value, value2, 'same value')
-					})
-					db.get(key1, function (err, node) {
-						t.error(err, 'no error')
-						t.same(node.key, key1, 'same key')
-						t.same(node.value, value1, 'same value')
-					})
-					db.get(key3, function (err, node) {
-						t.error(err, 'no error')
-						t.same(node.key, key3, 'same key')
-						t.same(node.value, value3, 'same value')
-					})
-				})
-			})
-		})
-	})
-})
-
-tape('insert 100 values and get them all', function (t) {
-	var db = create.one()
-	var max = 100
-	var i = 0
-
-	t.plan(3 * max)
-
-	loop()
-
-	function loop () {
-		if (i === max) return validate()
-		var key = identity.publicKey + '/#' + i;
-		var value = '#' + (i++);
-		db.put(key, value, EthCrypto.sign(identity.privateKey, db.createSignHash(key, value)), identity.publicKey, loop)
-	}
-
-	function validate () {
-		for (var i = 0; i < max; i++) {
-			db.get(identity.publicKey + '/#' + i, same(identity.publicKey + '/#' + i, '#' + i))
-		}
-	}
-
-	function same (key, value) {
-		return function (err, node) {
-			t.error(err, 'no error')
-			t.same(node.key, key, 'same key')
-			t.same(node.value, value, 'same value')
-		}
-	}
-})
-
-tape('race works', function (t) {
-	t.plan(40)
-
-	var missing = 10
-	var db = create.one()
-
-	for (var i = 0; i < 10; i++) {
-		var key = identity.publicKey + '/#' + i;
-		var value = '#' + i;
-		db.put(key, value, EthCrypto.sign(identity.privateKey, db.createSignHash(key, value)), identity.publicKey, done)
-	}
-
-	function done (err) {
-		t.error(err, 'no error')
-		if (--missing) return
-		for (var i = 0; i < 10; i++) same(identity.publicKey + '/#' + i, '#' + i)
-	}
-
-	function same (key, val) {
-		db.get(key, function (err, node) {
-			t.error(err, 'no error')
-			t.same(node.key, key, 'same key')
-			t.same(node.value, val, 'same value')
-		})
-	}
-})
-
-tape('version', function (t) {
-	var db = create.one()
-
-	db.version(function (err, version) {
-		t.error(err, 'no error')
-		t.same(version, Buffer.alloc(0))
-
-		var key = identity.publicKey + '/hello';
-		var value = 'world';
-		db.put(key, value, EthCrypto.sign(identity.privateKey, db.createSignHash(key, value)), identity.publicKey, function () {
-			db.version(function (err, version) {
-				t.error(err, 'no error')
-				var newValue = 'verden';
-				db.put(key, newValue, EthCrypto.sign(identity.privateKey, db.createSignHash(key, newValue)), identity.publicKey, function () {
-					db.checkout(version).get(key, function (err, node) {
-						t.error(err, 'no error')
-						t.same(node.value, value)
-						t.end()
-					})
-				})
-			})
-		})
-	})
-})
-
-tape('basic batch', function (t) {
-	t.plan(1 + 3 + 3)
-
-	var db = create.one()
-
-	db.batch([
+	const batchList = [
 		{
-			key: identity.publicKey + '/hello',
-			value: 'world',
-			signature: EthCrypto.sign(identity.privateKey, db.createSignHash(identity.publicKey + '/hello', 'world')),
-			writerAddress: identity.publicKey
+			type: "add-schema",
+			key: schemaKey,
+			value: schemaValue,
+			writerSignature: EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue)),
+			writerAddress: writerAddress
 		},
 		{
-			key: identity.publicKey + '/hej',
-			value: 'verden',
-			signature: EthCrypto.sign(identity.privateKey, db.createSignHash(identity.publicKey + '/hej', 'verden')),
-			writerAddress: identity.publicKey
-		},
-		{
-			key: identity.publicKey + '/hello',
-			value: 'welt',
-			signature: EthCrypto.sign(identity.privateKey, db.createSignHash(identity.publicKey + '/hello', 'welt')),
-			writerAddress: identity.publicKey
+			type: "add-schema",
+			key: schemaKey2,
+			value: schemaValue2,
+			writerSignature: EthCrypto.sign(privateKey, db.createSignHash(schemaKey2, schemaValue2)),
+			writerAddress: writerAddress
 		}
-	], function (err) {
-		t.error(err, 'no error')
-		db.get(identity.publicKey + '/hello', function (err, node) {
-			t.error(err, 'no error')
-			t.same(node.key, identity.publicKey + '/hello')
-			t.same(node.value, 'welt')
-		})
-		db.get(identity.publicKey + '/hej', function (err, node) {
-			t.error(err, 'no error')
-			t.same(node.key, identity.publicKey + '/hej')
-			t.same(node.value, 'verden')
-		})
-	})
-})
+	];
 
-tape('batch with del', function (t) {
-	t.plan(1 + 1 + 3 + 2)
+	db.batch(batchList, (err) => {
+		t.error(err, "no error");
+		const key1 = "hello/world";
+		const value1 = "world";
 
-	var db = create.one()
+		const key2 = "world";
+		const value2 = "hello";
 
-	db.batch([
+		db.put(key1, value1, EthCrypto.sign(privateKey, db.createSignHash(key1, value1)), writerAddress, { schemaKey }, (err, node) => {
+			t.error(err, "no error");
+			db.put(
+				key2,
+				value2,
+				EthCrypto.sign(privateKey, db.createSignHash(key2, value2)),
+				writerAddress,
+				{ schemaKey: schemaKey2 },
+				(err, node) => {
+					t.error(err, "no error");
+					db.get(key1, (err, node) => {
+						t.error(err, "no error");
+						t.same(node.key, key1, "same key");
+						t.same(node.value, value1, "same value");
+					});
+					db.get(key2, (err, node) => {
+						t.error(err, "no error");
+						t.same(node.key, key2, "same key");
+						t.same(node.value, value2, "same value");
+					});
+				}
+			);
+		});
+	});
+});
+
+tape("put in tree", (t) => {
+	t.plan(9);
+
+	const db = create.one();
+	const schemaKey = "schema/hello";
+	const schemaValue = {
+		keySchema: "hello",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+
+	const schemaKey2 = "schema/hello/world";
+	const schemaValue2 = {
+		keySchema: "hello/world",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+
+	const batchList = [
 		{
-			key: identity.publicKey + '/hello',
-			value: 'world',
-			signature: EthCrypto.sign(identity.privateKey, db.createSignHash(identity.publicKey + '/hello', 'world')),
-			writerAddress: identity.publicKey
+			type: "add-schema",
+			key: schemaKey,
+			value: schemaValue,
+			writerSignature: EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue)),
+			writerAddress: writerAddress
 		},
 		{
-			key: identity.publicKey + '/hej',
-			value: 'verden',
-			signature: EthCrypto.sign(identity.privateKey, db.createSignHash(identity.publicKey + '/hej', 'verden')),
-			writerAddress: identity.publicKey
-		},
-		{
-			key: identity.publicKey + '/hello',
-			value: 'welt',
-			signature: EthCrypto.sign(identity.privateKey, db.createSignHash(identity.publicKey + '/hello', 'welt')),
-			writerAddress: identity.publicKey
+			type: "add-schema",
+			key: schemaKey2,
+			value: schemaValue2,
+			writerSignature: EthCrypto.sign(privateKey, db.createSignHash(schemaKey2, schemaValue2)),
+			writerAddress: writerAddress
 		}
-	], function (err) {
-		t.error(err, 'no error')
-		db.batch([
-			{
-				key: identity.publicKey + '/hello',
-				value: 'verden',
-				signature: EthCrypto.sign(identity.privateKey, db.createSignHash(identity.publicKey + '/hello', 'verden')),
-				writerAddress: identity.publicKey
-			},
-			{
-				type: 'del',
-				key: identity.publicKey + '/hej',
-				value: '',
-				signature: EthCrypto.sign(identity.privateKey, db.createSignHash(identity.publicKey + '/hej', '')),
-				writerAddress: identity.publicKey
+	];
+
+	db.batch(batchList, (err) => {
+		t.error(err, "no error");
+
+		const key1 = "hello";
+		const value1 = "a";
+		const key2 = "hello/world";
+		const value2 = "b";
+
+		db.put(key1, value1, EthCrypto.sign(privateKey, db.createSignHash(key1, value1)), writerAddress, { schemaKey }, (err, node) => {
+			t.error(err, "no error");
+			db.put(
+				key2,
+				value2,
+				EthCrypto.sign(privateKey, db.createSignHash(key2, value2)),
+				writerAddress,
+				{ schemaKey: schemaKey2 },
+				(err, node) => {
+					t.error(err, "no error");
+					db.get(key1, (err, node) => {
+						t.error(err, "no error");
+						t.same(node.key, key1, "same key");
+						t.same(node.value, value1, "same value");
+					});
+					db.get(key2, (err, node) => {
+						t.error(err, "no error");
+						t.same(node.key, key2, "same key");
+						t.same(node.value, value2, "same value");
+					});
+				}
+			);
+		});
+	});
+});
+
+tape("put in tree reverse order", (t) => {
+	t.plan(9);
+
+	const db = create.one();
+	const schemaKey = "schema/hello/world";
+	const schemaValue = {
+		keySchema: "hello/world",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+
+	const schemaKey2 = "schema/hello";
+	const schemaValue2 = {
+		keySchema: "hello",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+
+	const batchList = [
+		{
+			type: "add-schema",
+			key: schemaKey,
+			value: schemaValue,
+			writerSignature: EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue)),
+			writerAddress: writerAddress
+		},
+		{
+			type: "add-schema",
+			key: schemaKey2,
+			value: schemaValue2,
+			writerSignature: EthCrypto.sign(privateKey, db.createSignHash(schemaKey2, schemaValue2)),
+			writerAddress: writerAddress
+		}
+	];
+
+	db.batch(batchList, (err) => {
+		t.error(err, "no error");
+		const key1 = "hello/world";
+		const value1 = "b";
+		const key2 = "hello";
+		const value2 = "a";
+
+		db.put(key1, value1, EthCrypto.sign(privateKey, db.createSignHash(key1, value1)), writerAddress, { schemaKey }, (err, node) => {
+			t.error(err, "no error");
+			db.put(
+				key2,
+				value2,
+				EthCrypto.sign(privateKey, db.createSignHash(key2, value2)),
+				writerAddress,
+				{ schemaKey: schemaKey2 },
+				(err, node) => {
+					t.error(err, "no error");
+					db.get(key2, (err, node) => {
+						t.error(err, "no error");
+						t.same(node.key, key2, "same key");
+						t.same(node.value, value2, "same value");
+					});
+					db.get(key1, (err, node) => {
+						t.error(err, "no error");
+						t.same(node.key, key1, "same key");
+						t.same(node.value, value1, "same value");
+					});
+				}
+			);
+		});
+	});
+});
+
+tape("multiple put in tree", (t) => {
+	t.plan(14);
+
+	const db = create.one();
+	const schemaKey = "schema/*/*";
+	const schemaValue = {
+		keySchema: "*/*",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+
+	const schemaKey2 = "schema/*";
+	const schemaValue2 = {
+		keySchema: "*",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+
+	const batchList = [
+		{
+			type: "add-schema",
+			key: schemaKey,
+			value: schemaValue,
+			writerSignature: EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue)),
+			writerAddress: writerAddress
+		},
+		{
+			type: "add-schema",
+			key: schemaKey2,
+			value: schemaValue2,
+			writerSignature: EthCrypto.sign(privateKey, db.createSignHash(schemaKey2, schemaValue2)),
+			writerAddress: writerAddress
+		}
+	];
+
+	db.batch(batchList, (err) => {
+		t.error(err, "no error");
+
+		const key1 = "hello/world";
+		const value1 = "b";
+		const key2 = "hello";
+		let value2 = "a";
+		const key3 = "hello/verden";
+		const value3 = "c";
+
+		db.put(key1, value1, EthCrypto.sign(privateKey, db.createSignHash(key1, value1)), writerAddress, { schemaKey }, (err, node) => {
+			t.error(err, "no error");
+			db.put(
+				key2,
+				value2,
+				EthCrypto.sign(privateKey, db.createSignHash(key2, value2)),
+				writerAddress,
+				{ schemaKey: schemaKey2 },
+				(err, node) => {
+					t.error(err, "no error");
+					db.put(
+						key3,
+						value3,
+						EthCrypto.sign(privateKey, db.createSignHash(key3, value3)),
+						writerAddress,
+						{ schemaKey },
+						(err, node) => {
+							t.error(err, "no error");
+							value2 = "d";
+							db.put(
+								key2,
+								value2,
+								EthCrypto.sign(privateKey, db.createSignHash(key2, value2)),
+								writerAddress,
+								{ schemaKey: schemaKey2 },
+								(err, node) => {
+									t.error(err, "no error");
+									db.get(key2, (err, node) => {
+										t.error(err, "no error");
+										t.same(node.key, key2, "same key");
+										t.same(node.value, value2, "same value");
+									});
+									db.get(key1, (err, node) => {
+										t.error(err, "no error");
+										t.same(node.key, key1, "same key");
+										t.same(node.value, value1, "same value");
+									});
+									db.get(key3, (err, node) => {
+										t.error(err, "no error");
+										t.same(node.key, key3, "same key");
+										t.same(node.value, value3, "same value");
+									});
+								}
+							);
+						}
+					);
+				}
+			);
+		});
+	});
+});
+
+tape("insert 100 values and get them all", (t) => {
+	const db = create.one();
+	const schemaKey = "schema/*";
+	const schemaValue = {
+		keySchema: "*",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+	let writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue));
+	db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
+		t.error(err);
+
+		const max = 100;
+		let i = 0;
+
+		t.plan(3 * max + 1);
+
+		const loop = () => {
+			if (i === max) return validate();
+			let key = "#" + i;
+			let value = "#" + i++;
+			db.put(key, value, EthCrypto.sign(privateKey, db.createSignHash(key, value)), writerAddress, { schemaKey }, loop);
+		};
+
+		const validate = () => {
+			for (let i = 0; i < max; i++) {
+				db.get("#" + i, same("#" + i, "#" + i));
 			}
-		], function (err) {
-			t.error(err, 'no error')
-			db.get(identity.publicKey + '/hello', function (err, node) {
-				t.error(err, 'no error')
-				t.same(node.key, identity.publicKey + '/hello')
-				t.same(node.value, 'verden')
-			})
-			db.get(identity.publicKey + '/hej', function (err, node) {
-				t.error(err, 'no error')
-				t.same(node, null)
-			})
-		})
-	})
-})
+		};
 
-tape('multiple batches', function (t) {
-	t.plan(19)
+		const same = (key, value) => {
+			return (err, node) => {
+				t.error(err, "no error");
+				t.same(node.key, key, "same key");
+				t.same(node.value, value, "same value");
+			};
+		};
 
-	var db = create.one()
+		loop();
+	});
+});
 
-	db.batch([
-		{
-			type: 'put',
-			key: identity.publicKey + '/foo',
-			value: 'foo',
-			signature: EthCrypto.sign(identity.privateKey, db.createSignHash(identity.publicKey + '/foo', 'foo')),
-			writerAddress: identity.publicKey
-		},
-		{
-			type: 'put',
-			key: identity.publicKey + '/bar',
-			value: 'bar',
-			signature: EthCrypto.sign(identity.privateKey, db.createSignHash(identity.publicKey + '/bar', 'bar')),
-			writerAddress: identity.publicKey
+tape("race works", (t) => {
+	t.plan(41);
+
+	let missing = 10;
+	const db = create.one();
+	const schemaKey = "schema/*";
+	const schemaValue = {
+		keySchema: "*",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+	let writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue));
+	db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
+		t.error(err);
+
+		const done = (err) => {
+			t.error(err, "no error");
+			if (--missing) return;
+			for (let i = 0; i < 10; i++) same("#" + i, "#" + i);
+		};
+
+		const same = (key, val) => {
+			db.get(key, (err, node) => {
+				t.error(err, "no error");
+				t.same(node.key, key, "same key");
+				t.same(node.value, val, "same value");
+			});
+		};
+
+		for (let i = 0; i < 10; i++) {
+			let key = "#" + i;
+			let value = "#" + i;
+			db.put(key, value, EthCrypto.sign(privateKey, db.createSignHash(key, value)), writerAddress, { schemaKey }, done);
 		}
-	], function (err, nodes) {
-		t.error(err)
-		t.same(2, nodes.length)
-		same(identity.publicKey + '/foo', 'foo')
-		same(identity.publicKey + '/bar', 'bar')
-		db.batch([
-			{
-				type: 'put',
-				key: identity.publicKey + '/foo',
-				value: 'foo2',
-				signature: EthCrypto.sign(identity.privateKey, db.createSignHash(identity.publicKey + '/foo', 'foo2')),
-				writerAddress: identity.publicKey
-			},
-			{
-				type: 'put',
-				key: identity.publicKey + '/bar',
-				value: 'bar2',
-				signature: EthCrypto.sign(identity.privateKey, db.createSignHash(identity.publicKey + '/bar', 'bar2')),
-				writerAddress: identity.publicKey
-			},
-			{
-				type: 'put',
-				key: identity.publicKey + '/baz',
-				value: 'baz',
-				signature: EthCrypto.sign(identity.privateKey, db.createSignHash(identity.publicKey + '/baz', 'baz')),
-				writerAddress: identity.publicKey
+	});
+});
+
+tape("version", (t) => {
+	const db = create.one();
+
+	db.version((err, version) => {
+		t.error(err, "no error");
+		t.same(version, Buffer.alloc(0));
+
+		const schemaKey = "schema/*";
+		const schemaValue = {
+			keySchema: "*",
+			valueValidationKey: "",
+			keyValidation: ""
+		};
+		let writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue));
+		db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
+			t.error(err);
+
+			const key = "hello";
+			const value = "world";
+			db.put(key, value, EthCrypto.sign(privateKey, db.createSignHash(key, value)), writerAddress, { schemaKey }, () => {
+				db.version((err, version) => {
+					t.error(err, "no error");
+					const newValue = "verden";
+					db.put(
+						key,
+						newValue,
+						EthCrypto.sign(privateKey, db.createSignHash(key, newValue)),
+						writerAddress,
+						{ schemaKey },
+						() => {
+							db.checkout(version).get(key, (err, node) => {
+								t.error(err, "no error");
+								t.same(node.value, value);
+								t.end();
+							});
+						}
+					);
+				});
+			});
+		});
+	});
+});
+
+tape("basic batch", (t) => {
+	t.plan(1 + 1 + 3 + 3);
+
+	const db = create.one();
+	const schemaKey = "schema/*";
+	const schemaValue = {
+		keySchema: "*",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+	let writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue));
+	db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
+		t.error(err, "no error");
+
+		db.batch(
+			[
+				{
+					type: "put",
+					key: "hello",
+					value: "world",
+					writerSignature: EthCrypto.sign(privateKey, db.createSignHash("hello", "world")),
+					writerAddress,
+					schemaKey
+				},
+				{
+					type: "put",
+					key: "hej",
+					value: "verden",
+					writerSignature: EthCrypto.sign(privateKey, db.createSignHash("hej", "verden")),
+					writerAddress,
+					schemaKey
+				},
+				{
+					type: "put",
+					key: "hello",
+					value: "welt",
+					writerSignature: EthCrypto.sign(privateKey, db.createSignHash("hello", "welt")),
+					writerAddress,
+					schemaKey
+				}
+			],
+			(err) => {
+				t.error(err, "no error");
+				db.get("hello", (err, node) => {
+					t.error(err, "no error");
+					t.same(node.key, "hello");
+					t.same(node.value, "welt");
+				});
+				db.get("hej", (err, node) => {
+					t.error(err, "no error");
+					t.same(node.key, "hej");
+					t.same(node.value, "verden");
+				});
 			}
-		], function (err, nodes) {
-			t.error(err)
-			t.same(3, nodes.length)
-			same(identity.publicKey + '/foo', 'foo2')
-			same(identity.publicKey + '/bar', 'bar2')
-			same(identity.publicKey + '/baz', 'baz')
-		})
-	})
+		);
+	});
+});
 
-	function same (key, val) {
-		db.get(key, function (err, node) {
-			t.error(err, 'no error')
-			t.same(node.key, key)
-			t.same(node.value, val)
-		})
-	}
-})
+tape("batch with del", (t) => {
+	t.plan(1 + 1 + 1 + 3 + 2);
 
-tape('createWriteStream', function (t) {
-	t.plan(10)
-	var db = create.one()
-	var writer = db.createWriteStream()
+	const db = create.one();
+	const schemaKey = "schema/*";
+	const schemaValue = {
+		keySchema: "*",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+	let writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue));
+	db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
+		t.error(err, "no error");
 
-	writer.write([
-		{
-			type: 'put',
-			key: identity.publicKey + '/foo',
-			value: 'foo',
-			signature: EthCrypto.sign(identity.privateKey, db.createSignHash(identity.publicKey + '/foo', 'foo')),
-			writerAddress: identity.publicKey
-		},
-		{
-			type: 'put',
-			key: identity.publicKey + '/bar',
-			value: 'bar',
-			signature: EthCrypto.sign(identity.privateKey, db.createSignHash(identity.publicKey + '/bar', 'bar')),
-			writerAddress: identity.publicKey
-		}
-	])
+		db.batch(
+			[
+				{
+					type: "put",
+					key: "hello",
+					value: "world",
+					writerSignature: EthCrypto.sign(privateKey, db.createSignHash("hello", "world")),
+					writerAddress,
+					schemaKey
+				},
+				{
+					type: "put",
+					key: "hej",
+					value: "verden",
+					writerSignature: EthCrypto.sign(privateKey, db.createSignHash("hej", "verden")),
+					writerAddress,
+					schemaKey
+				},
+				{
+					type: "put",
+					key: "hello",
+					value: "welt",
+					writerSignature: EthCrypto.sign(privateKey, db.createSignHash("hello", "welt")),
+					writerAddress,
+					schemaKey
+				}
+			],
+			(err) => {
+				t.error(err, "no error");
+				db.batch(
+					[
+						{
+							type: "put",
+							key: "hello",
+							value: "verden",
+							writerSignature: EthCrypto.sign(privateKey, db.createSignHash("hello", "verden")),
+							writerAddress,
+							schemaKey
+						},
+						{
+							type: "del",
+							key: "hej",
+							value: "",
+							writerSignature: EthCrypto.sign(privateKey, db.createSignHash("hej", "")),
+							writerAddress
+						}
+					],
+					(err) => {
+						t.error(err, "no error");
+						db.get("hello", (err, node) => {
+							t.error(err, "no error");
+							t.same(node.key, "hello");
+							t.same(node.value, "verden");
+						});
+						db.get("hej", (err, node) => {
+							t.error(err, "no error");
+							t.same(node, null);
+						});
+					}
+				);
+			}
+		);
+	});
+});
 
-	writer.write({
-		type: 'put',
-		key: identity.publicKey + '/baz',
-		value: 'baz',
-		signature: EthCrypto.sign(identity.privateKey, db.createSignHash(identity.publicKey + '/baz', 'baz')),
-		writerAddress: identity.publicKey
-	})
+tape("multiple batches", (t) => {
+	t.plan(20);
 
-	writer.end(function (err) {
-		t.error(err, 'no error')
-		same(identity.publicKey + '/foo', 'foo')
-		same(identity.publicKey + '/bar', 'bar')
-		same(identity.publicKey + '/baz', 'baz')
-	})
+	const db = create.one();
+	const schemaKey = "schema/*";
+	const schemaValue = {
+		keySchema: "*",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+	let writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue));
+	db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
+		t.error(err, "no error");
 
-	function same (key, val) {
-		db.get(key, function (err, node) {
-			t.error(err, 'no error')
-			t.same(node.key, key)
-			t.same(node.value, val)
-		})
-	}
-})
+		const same = (key, val) => {
+			db.get(key, (err, node) => {
+				t.error(err, "no error");
+				t.same(node.key, key);
+				t.same(node.value, val);
+			});
+		};
 
+		db.batch(
+			[
+				{
+					type: "put",
+					key: "foo",
+					value: "foo",
+					writerSignature: EthCrypto.sign(privateKey, db.createSignHash("foo", "foo")),
+					writerAddress,
+					schemaKey
+				},
+				{
+					type: "put",
+					key: "bar",
+					value: "bar",
+					writerSignature: EthCrypto.sign(privateKey, db.createSignHash("bar", "bar")),
+					writerAddress,
+					schemaKey
+				}
+			],
+			(err, nodes) => {
+				t.error(err);
+				t.same(2, nodes.length);
+				same("foo", "foo");
+				same("bar", "bar");
+				db.batch(
+					[
+						{
+							type: "put",
+							key: "foo",
+							value: "foo2",
+							writerSignature: EthCrypto.sign(privateKey, db.createSignHash("foo", "foo2")),
+							writerAddress,
+							schemaKey
+						},
+						{
+							type: "put",
+							key: "bar",
+							value: "bar2",
+							writerSignature: EthCrypto.sign(privateKey, db.createSignHash("bar", "bar2")),
+							writerAddress,
+							schemaKey
+						},
+						{
+							type: "put",
+							key: "baz",
+							value: "baz",
+							writerSignature: EthCrypto.sign(privateKey, db.createSignHash("baz", "baz")),
+							writerAddress,
+							schemaKey
+						}
+					],
+					(err, nodes) => {
+						t.error(err);
+						t.same(3, nodes.length);
+						same("foo", "foo2");
+						same("bar", "bar2");
+						same("baz", "baz");
+					}
+				);
+			}
+		);
+	});
+});
+
+tape("createWriteStream", (t) => {
+	t.plan(11);
+
+	const db = create.one();
+	const schemaKey = "schema/*";
+	const schemaValue = {
+		keySchema: "*",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+	let writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue));
+	db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
+		t.error(err, "no error");
+
+		const same = (key, val) => {
+			db.get(key, (err, node) => {
+				t.error(err, "no error");
+				t.same(node.key, key);
+				t.same(node.value, val);
+			});
+		};
+
+		const writer = db.createWriteStream();
+
+		writer.write([
+			{
+				type: "put",
+				key: "foo",
+				value: "foo",
+				writerSignature: EthCrypto.sign(privateKey, db.createSignHash("foo", "foo")),
+				writerAddress,
+				schemaKey
+			},
+			{
+				type: "put",
+				key: "bar",
+				value: "bar",
+				writerSignature: EthCrypto.sign(privateKey, db.createSignHash("bar", "bar")),
+				writerAddress,
+				schemaKey
+			}
+		]);
+
+		writer.write({
+			type: "put",
+			key: "baz",
+			value: "baz",
+			writerSignature: EthCrypto.sign(privateKey, db.createSignHash("baz", "baz")),
+			writerAddress,
+			schemaKey
+		});
+
+		writer.end((err) => {
+			t.error(err, "no error");
+			same("foo", "foo");
+			same("bar", "bar");
+			same("baz", "baz");
+		});
+	});
+});
+
+/*
 tape('createWriteStream pipe', function (t) {
-	t.plan(10)
-	var db = create.one()
+	t.plan(11)
+
+	const db = create.one()
+	const schemaKey = "schema/*";
+	const schemaValue = {
+		keySchema: "*",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+
 	var writer = db.createWriteStream()
 	var index = 0
 	var reader = new Readable({
 		objectMode: true,
 		read: function (size) {
-			var value = (index < 1000) ? {
+				this.push({
+					type: 'add-schema',
+					key: schemaKey,
+					value: schemaValue,
+					writerSignature: EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue)),
+					writerAddress
+				});
+			var value = (index < 5) ? {
 				type: 'put',
-				key: identity.publicKey + '/foo' + index,
+				key: 'foo' + index,
 				value: index,
-				signature: EthCrypto.sign(identity.privateKey, db.createSignHash(identity.publicKey + '/foo' + index, index)),
-				writerAddress: identity.publicKey
+				writerSignature: EthCrypto.sign(privateKey, db.createSignHash('foo' + index, index)),
+				writerAddress,
+				schemaKey
 			} : null
 			index++;
 			this.push(value)
@@ -558,177 +925,336 @@ tape('createWriteStream pipe', function (t) {
 	reader.pipe(writer)
 	writer.on('finish', function (err) {
 		t.error(err, 'no error')
-		same(identity.publicKey + '/foo1', '1')
-		same(identity.publicKey + '/foo50', '50')
-		same(identity.publicKey + '/foo999', '999')
+		same('foo1', 1)
+		same('foo3', 3)
 	})
 
 	function same (key, val) {
 		db.get(key, function (err, node) {
+			console.log('key', key),
+			console.log('node', node);
+			console.log('err', err);
 			t.error(err, 'no error')
 			t.same(node.key, key)
 			t.same(node.value, val)
 		})
 	}
 })
+return
+*/
 
-tape('create with precreated keypair', function (t) {
-	var crypto = require('hypercore/lib/crypto')
-	var keyPair = crypto.keyPair()
+tape("create with precreated keypair", (t) => {
+	const crypto = require("hypercore/lib/crypto");
+	const keyPair = crypto.keyPair();
 
-	var db = create.one(keyPair.publicKey, {secretKey: keyPair.secretKey})
-	var key = identity.publicKey + '/hello';
-	var value = 'world';
+	const db = create.one(keyPair.publicKey, { secretKey: keyPair.secretKey });
+	const schemaKey = "schema/*";
+	const schemaValue = {
+		keySchema: "*",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+	const writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue));
+	db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
+		t.error(err, "no error");
 
-	db.put(key, value, EthCrypto.sign(identity.privateKey, db.createSignHash(key, value)), identity.publicKey, function (err, node) {
-		t.same(node.value, value)
-		t.error(err, 'no error')
-		t.same(db.key, keyPair.publicKey, 'pubkey matches')
-		db.source._storage.secretKey.read(0, keyPair.secretKey.length, function (err, secretKey) {
-			t.error(err, 'no error')
-			t.same(secretKey, keyPair.secretKey, 'secret key is stored')
-		})
-		db.get(key, function (err, node) {
-			t.error(err, 'no error')
-			t.same(node.value, value, 'same value')
-			t.end()
-		})
-	})
-})
+		const key = "hello";
+		const value = "world";
 
-tape('can insert falsy values', function (t) {
-	t.plan(2 * 2 + 3 + 1)
+		db.put(key, value, EthCrypto.sign(privateKey, db.createSignHash(key, value)), writerAddress, { schemaKey }, (err, node) => {
+			t.same(node.value, value);
+			t.error(err, "no error");
+			t.same(db.key, keyPair.publicKey, "pubkey matches");
+			db.source._storage.secretKey.read(0, keyPair.secretKey.length, (err, secretKey) => {
+				t.error(err, "no error");
+				t.same(secretKey, keyPair.secretKey, "secret key is stored");
+			});
+			db.get(key, (err, node) => {
+				t.error(err, "no error");
+				t.same(node.value, value, "same value");
+				t.end();
+			});
+		});
+	});
+});
 
-	var db = create.one(null, {valueEncoding: 'json'})
+tape("can insert falsy values", (t) => {
+	t.plan(1 + 2 * 2 + 4 + 1);
 
-	var key1 = identity.publicKey + '/hello';
-	var value1 = 0;
-	var key2 = identity.publicKey + '/world';
-	var value2 = false;
+	const db = create.one(null, { valueEncoding: "json" });
+	const schemaKey = "schema/*";
+	const schemaValue = {
+		keySchema: "*",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+	const writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue));
+	db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
+		t.error(err, "no error");
 
-	db.put(key1, value1, EthCrypto.sign(identity.privateKey, db.createSignHash(key1, value1)), identity.publicKey, function () {
-		db.put(key2, value2, EthCrypto.sign(identity.privateKey, db.createSignHash(key2, value2)), identity.publicKey, function () {
-			db.get(key1, function (err, node) {
-				t.error(err, 'no error')
-				t.same(node && node.value, value1)
-			})
-			db.get(key2, function (err, node) {
-				t.error(err, 'no error')
-				t.same(node && node.value, value2)
-			})
+		const key1 = "hello";
+		const value1 = 0;
+		const key2 = "world";
+		const value2 = false;
 
-			var ite = db.iterator()
-			var result = {}
+		db.put(key1, value1, EthCrypto.sign(privateKey, db.createSignHash(key1, value1)), writerAddress, { schemaKey }, () => {
+			db.put(key2, value2, EthCrypto.sign(privateKey, db.createSignHash(key2, value2)), writerAddress, { schemaKey }, () => {
+				db.get(key1, (err, node) => {
+					t.error(err, "no error");
+					t.same(node && node.value, value1);
+				});
+				db.get(key2, (err, node) => {
+					t.error(err, "no error");
+					t.same(node && node.value, value2);
+				});
 
-			ite.next(function loop (err, node) {
-				t.error(err, 'no error')
+				const ite = db.iterator();
+				const result = {};
 
-				if (!node) {
-					t.same(result, {[identity.publicKey + '/hello']: 0, [identity.publicKey + '/world']: false})
-					return
+				ite.next(function loop(err, node) {
+					t.error(err, "no error");
+
+					if (!node) {
+						t.same(result, { ["hello"]: 0, ["world"]: false });
+						return;
+					}
+
+					if (node.key !== schemaKey) result[node.key] = node.value;
+					ite.next(loop);
+				});
+			});
+		});
+	});
+});
+
+tape("can put/get a null value", (t) => {
+	t.plan(4);
+
+	const db = create.one(null, { valueEncoding: "json" });
+	const schemaKey = "schema/*";
+	const schemaValue = {
+		keySchema: "*",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+	const writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue));
+	db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
+		t.error(err, "no error");
+
+		const key = "some key";
+		const value = null;
+		db.put(key, value, EthCrypto.sign(privateKey, db.createSignHash(key, value)), writerAddress, { schemaKey }, (err) => {
+			t.error(err, "no error");
+			db.get(key, (err, node) => {
+				t.error(err, "no error");
+				t.same(node.value, null);
+			});
+		});
+	});
+});
+
+tape("does not reinsert if isNotExists is true in put", (t) => {
+	t.plan(5);
+
+	const db = create.one(null, { valueEncoding: "json" });
+	const schemaKey = "schema/*";
+	const schemaValue = {
+		keySchema: "*",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+	const writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue));
+	db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
+		t.error(err, "no error");
+
+		const key = "some key";
+		const value = "hello";
+		db.put(key, value, EthCrypto.sign(privateKey, db.createSignHash(key, value)), writerAddress, { schemaKey }, (err) => {
+			t.error(err, "no error");
+			const value2 = "goodbye";
+			db.put(
+				key,
+				value2,
+				EthCrypto.sign(privateKey, db.createSignHash(key, value2)),
+				writerAddress,
+				{ schemaKey, ifNotExists: true },
+				(err) => {
+					t.error(err, "no error");
+					db.get(key, (err, node) => {
+						t.error(err, "no error");
+						t.same(node.value, value);
+					});
 				}
+			);
+		});
+	});
+});
 
-				result[node.key] = node.value
-				ite.next(loop)
-			})
-		})
-	})
-})
+tape("normal insertions work with ifNotExists", (t) => {
+	t.plan(6);
 
-tape('can put/get a null value', function (t) {
-	t.plan(3)
+	const db = create.one();
+	const schemaKey = "schema/*";
+	const schemaValue = {
+		keySchema: "*",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+	const writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue));
+	db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
+		t.error(err, "no error");
 
-	var db = create.one(null, {valueEncoding: 'json'})
-	var key = identity.publicKey + '/some key';
-	var value = null;
-	db.put(key, value, EthCrypto.sign(identity.privateKey, db.createSignHash(key, value)), identity.publicKey, function (err) {
-		t.error(err, 'no error')
-		db.get(key, function (err, node) {
-			t.error(err, 'no error')
-			t.same(node.value, null)
-		})
-	})
-})
+		const done = (err) => {
+			t.error(err, "no error");
+			db.get("some key", (err, node) => {
+				t.error(err, "no error");
+				t.same(node.value, "hello");
+				db.get("another key", (err, node) => {
+					t.error(err, "no error");
+					t.same(node.value, "something else");
+				});
+			});
+		};
 
-tape('does not reinsert if isNotExists is true in put', function (t) {
-	t.plan(4)
-
-	var db = create.one(null, {valueEncoding: 'utf8'})
-	var key = identity.publicKey + '/some key';
-	var value = 'hello';
-	db.put(key, value, EthCrypto.sign(identity.privateKey, db.createSignHash(key, value)), identity.publicKey, function (err) {
-		t.error(err, 'no error')
-		var value2 = 'goodbye'
-		db.put(key, value2, EthCrypto.sign(identity.privateKey, db.createSignHash(key, value2)), identity.publicKey, { ifNotExists: true }, function (err) {
-			t.error(err, 'no error')
-			db.get(key, function (err, node) {
-				t.error(err, 'no error')
-				t.same(node.value, value)
-			})
-		})
-	})
-})
-
-tape('normal insertions work with ifNotExists', function (t) {
-	t.plan(5)
-
-	var db = create.one()
-	run(
-		cb => db.put(identity.publicKey + '/some key', 'hello', EthCrypto.sign(identity.privateKey, db.createSignHash(identity.publicKey + '/some key', 'hello')), identity.publicKey, { ifNotExists: true }, cb),
-		cb => db.put(identity.publicKey + '/some key', 'goodbye', EthCrypto.sign(identity.privateKey, db.createSignHash(identity.publicKey + '/some key', 'goodbye')), identity.publicKey, { ifNotExists: true }, cb),
-		cb => db.put(identity.publicKey + '/another key', 'something else', EthCrypto.sign(identity.privateKey, db.createSignHash(identity.publicKey + '/another key', 'something else')), identity.publicKey, { ifNotExists: true }, cb),
-		done
-	)
-
-	function done (err) {
-		t.error(err, 'no error')
-		db.get(identity.publicKey + '/some key', function (err, node) {
-			t.error(err, 'no error')
-			t.same(node.value, 'hello')
-			db.get(identity.publicKey + '/another key', function (err, node) {
-				t.error(err, 'no error')
-				t.same(node.value, 'something else')
-			})
-		})
-	}
-})
-
-tape('put with ifNotExists does not reinsert with conflict', function (t) {
-	t.plan(5)
-
-	create.two(function (db1, db2, replicate) {
 		run(
-			cb => db1.put(identity.publicKey + '/0', '0', EthCrypto.sign(identity.privateKey, db1.createSignHash(identity.publicKey + '/0', '0')), identity.publicKey, cb),
-			replicate,
-			cb => db1.put(identity.publicKey + '/1', '1a', EthCrypto.sign(identity.privateKey, db1.createSignHash(identity.publicKey + '/1', '1a')), identity.publicKey, cb),
-			cb => db2.put(identity.publicKey + '/1', '1b', EthCrypto.sign(identity.privateKey, db2.createSignHash(identity.publicKey + '/1', '1b')), identity.publicKey, cb),
-			cb => db1.put(identity.publicKey + '/10', '10', EthCrypto.sign(identity.privateKey, db1.createSignHash(identity.publicKey + '/10', '10')), identity.publicKey, cb),
-			replicate,
-			cb => db1.put(identity.publicKey + '/2', '2', EthCrypto.sign(identity.privateKey, db1.createSignHash(identity.publicKey + '/2', '2')), identity.publicKey, cb),
-			cb => db1.put(identity.publicKey + '/1/0', '1/0', EthCrypto.sign(identity.privateKey, db1.createSignHash(identity.publicKey + '/1/0', '1/0')), identity.publicKey, cb),
+			(cb) =>
+				db.put(
+					"some key",
+					"hello",
+					EthCrypto.sign(privateKey, db.createSignHash("some key", "hello")),
+					writerAddress,
+					{ schemaKey, ifNotExists: true },
+					cb
+				),
+			(cb) =>
+				db.put(
+					"some key",
+					"goodbye",
+					EthCrypto.sign(privateKey, db.createSignHash("some key", "goodbye")),
+					writerAddress,
+					{ schemaKey, ifNotExists: true },
+					cb
+				),
+			(cb) =>
+				db.put(
+					"another key",
+					"something else",
+					EthCrypto.sign(privateKey, db.createSignHash("another key", "something else")),
+					writerAddress,
+					{ schemaKey, ifNotExists: true },
+					cb
+				),
 			done
-		)
+		);
+	});
+});
 
-		function done (err) {
-			t.error(err, 'no error')
-			db1.put(identity.publicKey + '/1', '1c', EthCrypto.sign(identity.privateKey, db1.createSignHash(identity.publicKey + '/1', '1c')), identity.publicKey, { ifNotExists: true }, function (err) {
-				t.error(err, 'no error')
-				db1.get(identity.publicKey + '/1', function (err, nodes) {
-					t.error(err, 'no error')
-					t.same(nodes.length, 2)
-					var vals = nodes.map(function (n) {
-						return n.value
-					})
-					t.same(vals, ['1b', '1a'])
-				})
-			})
-		}
-	})
-})
+tape("put with ifNotExists does not reinsert with conflict", (t) => {
+	t.plan(7);
 
-tape('opts is not mutated', function (t) {
-	var opts = {firstNode: true}
-	create.one(opts)
-	t.deepEqual(opts, {firstNode: true})
-	t.end()
-})
+	create.two((db1, db2, replicate) => {
+		const schemaKey = "schema/*";
+		const schemaValue = {
+			keySchema: "*",
+			valueValidationKey: "",
+			keyValidation: ""
+		};
+
+		const schemaKey2 = "schema/*/*";
+		const schemaValue2 = {
+			keySchema: "*/*",
+			valueValidationKey: "",
+			keyValidation: ""
+		};
+
+		const batchList1 = [
+			{
+				type: "add-schema",
+				key: schemaKey,
+				value: schemaValue,
+				writerSignature: EthCrypto.sign(privateKey, db1.createSignHash(schemaKey, schemaValue)),
+				writerAddress: writerAddress
+			},
+			{
+				type: "add-schema",
+				key: schemaKey2,
+				value: schemaValue2,
+				writerSignature: EthCrypto.sign(privateKey, db1.createSignHash(schemaKey2, schemaValue2)),
+				writerAddress: writerAddress
+			}
+		];
+		const batchList2 = [
+			{
+				type: "add-schema",
+				key: schemaKey,
+				value: schemaValue,
+				writerSignature: EthCrypto.sign(privateKey, db2.createSignHash(schemaKey, schemaValue)),
+				writerAddress: writerAddress
+			},
+			{
+				type: "add-schema",
+				key: schemaKey2,
+				value: schemaValue2,
+				writerSignature: EthCrypto.sign(privateKey, db2.createSignHash(schemaKey2, schemaValue2)),
+				writerAddress: writerAddress
+			}
+		];
+
+		db1.batch(batchList1, (err) => {
+			t.error(err, "no error");
+			db2.batch(batchList2, (err) => {
+				t.error(err, "no error");
+
+				const done = (err) => {
+					t.error(err, "no error");
+					db1.put(
+						"1",
+						"1c",
+						EthCrypto.sign(privateKey, db1.createSignHash("1", "1c")),
+						writerAddress,
+						{ schemaKey, ifNotExists: true },
+						(err) => {
+							t.error(err, "no error");
+							db1.get("1", (err, nodes) => {
+								t.error(err, "no error");
+								t.same(nodes.length, 2);
+								var vals = nodes.map((n) => {
+									return n.value;
+								});
+								t.same(vals, ["1b", "1a"]);
+							});
+						}
+					);
+				};
+
+				run(
+					(cb) => db1.put("0", "0", EthCrypto.sign(privateKey, db1.createSignHash("0", "0")), writerAddress, { schemaKey }, cb),
+					replicate,
+					(cb) => db1.put("1", "1a", EthCrypto.sign(privateKey, db1.createSignHash("1", "1a")), writerAddress, { schemaKey }, cb),
+					(cb) => db2.put("1", "1b", EthCrypto.sign(privateKey, db2.createSignHash("1", "1b")), writerAddress, { schemaKey }, cb),
+					(cb) =>
+						db1.put("10", "10", EthCrypto.sign(privateKey, db1.createSignHash("10", "10")), writerAddress, { schemaKey }, cb),
+					replicate,
+					(cb) => db1.put("2", "2", EthCrypto.sign(privateKey, db1.createSignHash("2", "2")), writerAddress, { schemaKey }, cb),
+					(cb) =>
+						db1.put(
+							"1/0",
+							"1/0",
+							EthCrypto.sign(privateKey, db1.createSignHash("1/0", "1/0")),
+							writerAddress,
+							{ schemaKey: schemaKey2 },
+							cb
+						),
+					done
+				);
+			});
+		});
+	});
+});
+
+tape("opts is not mutated", (t) => {
+	const opts = { firstNode: true };
+	create.one(opts);
+	t.deepEqual(opts, { firstNode: true });
+	t.end();
+});
