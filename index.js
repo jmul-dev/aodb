@@ -229,30 +229,64 @@ AODB.prototype.put = function (key, val, writerSignature, writerAddress, opts, c
 					if (opts && !opts.schemaKey) {
 						throwError(cb, 'Error: missing the schemaKey option for this entry');
 					}
+
+					// Validate pointerKey if exist
+					let hasPointer = false;
+					if (opts && opts.pointerKey) {
+						if (!opts.pointerSchemaKey) {
+							throwError(cb, 'Error: missing the pointerSchemaKey option for this entry');
+						}
+						try {
+							const pointerSchemaKeyNode = await promisifyGet(self, heads, normalizeKey(opts.pointerSchemaKey));
+							if (!pointerSchemaKeyNode) throwError(cb, 'Error: unable to find this entry for the pointerSchemaKey')
+							if (pointerSchemaKeyNode.length) pointerSchemaKeyNode = pointerSchemaKeyNode[0];
+
+							// Validate the pointerKey
+							const validation = validateKeySchema(normalizeKey(opts.pointerKey), pointerSchemaKeyNode.value.keySchema, writerAddress);
+							if (validation.error) {
+								throwError(cb, 'Error: ' + validation.errorMessage);
+							}
+							hasPointer = true;
+						} catch (e) {
+							throwError(cb, e);
+						}
+					}
+
 					// Get the schema
 					try {
-						const node = await promisifyGet(self, heads, normalizeKey(opts.schemaKey));
-						if (!node) throwError(cb, 'Error: unable to find this entry for the schemaKey')
-						if (node.length) node = node[0];
+						const schemaKeyNode = await promisifyGet(self, heads, normalizeKey(opts.schemaKey));
+						if (!schemaKeyNode) throwError(cb, 'Error: unable to find this entry for the schemaKey')
+						if (schemaKeyNode.length) schemaKeyNode = schemaKeyNode[0];
 
 						// Validate the key
-						let validation = validateKeySchema(normalizeKey(key), node.value.keySchema, writerAddress);
+						let validation = validateKeySchema(normalizeKey(key), schemaKeyNode.value.keySchema, writerAddress);
 						if (validation.error) {
 							throwError(cb, 'Error: ' + validation.errorMessage);
 						}
 
 						// Validate the val if there is valueValidationKey
-						if (node.value.valueValidationKey) {
-							validation = await validateEntryValue(self, heads, val, node.value.valueValidationKey);
+						if (schemaKeyNode.value.valueValidationKey) {
+							validation = await validateEntryValue(self, heads, val, schemaKeyNode.value.valueValidationKey);
 							if (validation.error) {
 								throwError(cb, 'Error: ' + validation.errorMessage);
 							}
-							put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock)
-						} else {
-							put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock)
 						}
 					} catch (e) {
 						throwError(cb, e);
+					}
+
+					// If there is a valid pointerKey
+					if (hasPointer && opts.pointerKey && opts.pointerSchemaKey) {
+						// Insert the pointerKey
+						put(self, clock, heads, normalizeKey(opts.pointerKey), key, writerSignature, writerAddress, {schemaKey: opts.pointerSchemaKey, pointer: true}, (err, node) => {
+							self._getHeads(false, async function (err, heads) {
+								if (err) throwError(cb, err)
+								// Insert the key
+								put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock);
+							})
+						})
+					} else {
+						put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock)
 					}
 				}
 			} else {

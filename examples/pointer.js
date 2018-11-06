@@ -55,23 +55,23 @@ db.batch(batchList, (err) => {
 	let key = writerAddress2 + "/profilePicture";
 	let value = "https://upload.wikimedia.org/wikipedia/en/thumb/e/e0/Iron_Man_bleeding_edge.jpg/250px-Iron_Man_bleeding_edge.jpg";
 	let writerSignature2 = EthCrypto.sign(privateKey2, db.createSignHash(key, value));
-	let pointerKey = 'settings/profilePicture/' + writerAddress2;
+	let pointerKey = "settings/profilePicture/" + writerAddress2;
 	let opts = {
 		schemaKey,
 		pointerKey,
-		pointerKeySchema: schemaKey2
+		pointerSchemaKey: schemaKey2
 	};
-	db.put(key, value, writerSignature2, writerAddress2, opts, (err) => {
+	db.put(key, value, writerSignature2, writerAddress2, opts, (err, node) => {
 		if (err) throw err;
 		db.get(key, (err, node) => {
 			if (err) throw err;
 			console.log("Put:\n" + key + " --> " + node.value + "\n");
-		})
+			console.log("pointerKey --> " + node.pointerKey + "\n");
+		});
 		db.get(pointerKey, (err, node) => {
 			if (err) throw err;
-			console.log(node);
-			//console.log("Put:\n" + pointerKey + " --> " + node.value + "\n");
-		})
-
+			console.log("Put Pointer Key:\n" + pointerKey + " --> " + node.value + "\n");
+			console.log("pointer --> " + node.pointer + "\n");
+		});
 	});
-})
+});
