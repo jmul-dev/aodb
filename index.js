@@ -153,7 +153,7 @@ AODB.prototype.batch = function (batch, cb) {
 							throwError(cb, 'Error: missing the pointerSchemaKey option for this entry');
 						}
 						try {
-							const pointerSchemaKeyNode = await promisifyGet(self, heads, normalizeKey(next.pointerSchemaKey));
+							let pointerSchemaKeyNode = await promisifyGet(self, heads, normalizeKey(next.pointerSchemaKey));
 							if (!pointerSchemaKeyNode) throwError(cb, 'Error: unable to find this entry for the pointerSchemaKey')
 							if (pointerSchemaKeyNode.length) pointerSchemaKeyNode = pointerSchemaKeyNode[0];
 
@@ -170,7 +170,7 @@ AODB.prototype.batch = function (batch, cb) {
 
 					// Get the schema
 					try {
-						const schemaKeyNode = await promisifyGet(self, heads, normalizeKey(next.schemaKey));
+						let schemaKeyNode = await promisifyGet(self, heads, normalizeKey(next.schemaKey));
 						if (!schemaKeyNode) throwError(cb, 'Error: unable to find this entry for the schemaKey')
 						if (schemaKeyNode.length) schemaKeyNode = schemaKeyNode[0];
 
@@ -273,7 +273,7 @@ AODB.prototype.put = function (key, val, writerSignature, writerAddress, opts, c
 							throwError(cb, 'Error: missing the pointerSchemaKey option for this entry');
 						}
 						try {
-							const pointerSchemaKeyNode = await promisifyGet(self, heads, normalizeKey(opts.pointerSchemaKey));
+							let pointerSchemaKeyNode = await promisifyGet(self, heads, normalizeKey(opts.pointerSchemaKey));
 							if (!pointerSchemaKeyNode) throwError(cb, 'Error: unable to find this entry for the pointerSchemaKey')
 							if (pointerSchemaKeyNode.length) pointerSchemaKeyNode = pointerSchemaKeyNode[0];
 
@@ -290,7 +290,7 @@ AODB.prototype.put = function (key, val, writerSignature, writerAddress, opts, c
 
 					// Get the schema
 					try {
-						const schemaKeyNode = await promisifyGet(self, heads, normalizeKey(opts.schemaKey));
+						let schemaKeyNode = await promisifyGet(self, heads, normalizeKey(opts.schemaKey));
 						if (!schemaKeyNode) throwError(cb, 'Error: unable to find this entry for the schemaKey')
 						if (schemaKeyNode.length) schemaKeyNode = schemaKeyNode[0];
 
@@ -1360,7 +1360,7 @@ const validateKeySchema = (key, keySchema, writerAddress) => {
  */
 const validateEntryValue = async (self, heads, value, valueValidationKey) => {
 	try {
-		const node = await promisifyGet(self, heads, normalizeKey(valueValidationKey));
+		let node = await promisifyGet(self, heads, normalizeKey(valueValidationKey));
 		if (!node)
 			return { error: true, errorMessage: 'Unable to find valueValidationKey entry' };
 		if (node.length) node = node[0];
