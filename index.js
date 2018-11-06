@@ -141,33 +141,69 @@ AODB.prototype.batch = function (batch, cb) {
 				} else if (next.type === 'del') {
 					put(self, clock, heads, normalizeKey(next.key), next.value, next.writerSignature, next.writerAddress, {delete: next.type === 'del'}, loop)
 				} else if (next.type === 'put') {
+					// If not writing a schema, then a schemaKey for this key needs to be provided
 					if (!next.schemaKey) {
 						throwError(cb, 'Error: missing the schemaKey option for this entry');
 					}
+
+					// Validate pointerKey if exist
+					let hasPointer = false;
+					if (next.pointerKey) {
+						if (!next.pointerSchemaKey) {
+							throwError(cb, 'Error: missing the pointerSchemaKey option for this entry');
+						}
+						try {
+							const pointerSchemaKeyNode = await promisifyGet(self, heads, normalizeKey(next.pointerSchemaKey));
+							if (!pointerSchemaKeyNode) throwError(cb, 'Error: unable to find this entry for the pointerSchemaKey')
+							if (pointerSchemaKeyNode.length) pointerSchemaKeyNode = pointerSchemaKeyNode[0];
+
+							// Validate the pointerKey
+							const validation = validateKeySchema(normalizeKey(next.pointerKey), pointerSchemaKeyNode.value.keySchema, next.writerAddress);
+							if (validation.error) {
+								throwError(cb, 'Error: ' + validation.errorMessage);
+							}
+							hasPointer = true;
+						} catch (e) {
+							throwError(cb, e);
+						}
+					}
+
 					// Get the schema
 					try {
-						const node = await promisifyGet(self, heads, normalizeKey(next.schemaKey));
-						if (!node) throwError(cb, 'Error: unable to find this entry for the schemaKey')
-						if (node.length) node = node[0];
+						const schemaKeyNode = await promisifyGet(self, heads, normalizeKey(next.schemaKey));
+						if (!schemaKeyNode) throwError(cb, 'Error: unable to find this entry for the schemaKey')
+						if (schemaKeyNode.length) schemaKeyNode = schemaKeyNode[0];
 
 						// Validate the key
-						let validation = validateKeySchema(normalizeKey(next.key), node.value.keySchema, next.writerAddress);
+						let validation = validateKeySchema(normalizeKey(next.key), schemaKeyNode.value.keySchema, next.writerAddress);
 						if (validation.error) {
 							throwError(cb, 'Error: ' + validation.errorMessage);
 						}
 
 						// Validate the val if there is valueValidationKey
-						if (node.value.valueValidationKey) {
-							validation = await validateEntryValue(self, heads, next.value, node.value.valueValidationKey);
+						if (schemaKeyNode.value.valueValidationKey) {
+							validation = await validateEntryValue(self, heads, val, schemaKeyNode.value.valueValidationKey);
 							if (validation.error) {
 								throwError(cb, 'Error: ' + validation.errorMessage);
 							}
-							put(self, clock, heads, normalizeKey(next.key), next.value, next.writerSignature, next.writerAddress, {schemaKey: next.schemaKey}, loop)
-						} else {
-							put(self, clock, heads, normalizeKey(next.key), next.value, next.writerSignature, next.writerAddress, {schemaKey: next.schemaKey}, loop)
 						}
 					} catch (e) {
 						throwError(cb, e);
+					}
+
+					// If there is a valid pointerKey
+					if (hasPointer && next.pointerKey && next.pointerSchemaKey) {
+						// Insert the pointerKey
+						put(self, clock, heads, normalizeKey(next.pointerKey), next.key, next.writerSignature, next.writerAddress, {schemaKey: next.pointerSchemaKey, pointer: true}, (err, node) => {
+							if (node) {
+								node.path = hash(node.key, true)
+								heads = [node]
+							}
+							// Insert the key
+							put(self, clock, heads, normalizeKey(next.key), next.value, next.writerSignature, next.writerAddress, {schemaKey: next.schemaKey, pointerKey: next.pointerKey}, loop);
+						})
+					} else {
+						put(self, clock, heads, normalizeKey(next.key), next.value, next.writerSignature, next.writerAddress, {schemaKey: next.schemaKey}, loop)
 					}
 				}
 			}
