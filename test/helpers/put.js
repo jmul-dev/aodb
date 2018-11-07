@@ -12,7 +12,9 @@ module.exports = function(db, privateKey, writerAddress, list, opts, cb) {
 		if (typeof next === "string") next = { key: next, value: next };
 		if (typeof next === "object" && next.schemaKey) {
 			opts.schemaKey = next.schemaKey;
-			next = { key: next.key, value: next.key };
+			if (!next.value) {
+				next = { key: next.key, value: next.key };
+			}
 		}
 
 		var signature = EthCrypto.sign(privateKey, db.createSignHash(next.key, next.value));
