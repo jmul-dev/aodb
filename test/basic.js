@@ -888,59 +888,37 @@ tape("createWriteStream", (t) => {
 
 /*
 tape('createWriteStream pipe', function (t) {
-	t.plan(11)
-
-	const db = create.one()
-	const schemaKey = "schema/*";
-	const schemaValue = {
-		keySchema: "*",
-		valueValidationKey: "",
-		keyValidation: ""
-	};
-
+	t.plan(10)
+	var db = create.one()
 	var writer = db.createWriteStream()
 	var index = 0
 	var reader = new Readable({
 		objectMode: true,
 		read: function (size) {
-				this.push({
-					type: 'add-schema',
-					key: schemaKey,
-					value: schemaValue,
-					writerSignature: EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue)),
-					writerAddress
-				});
-			var value = (index < 5) ? {
+			var value = (index < 1000) ? {
 				type: 'put',
 				key: 'foo' + index,
-				value: index,
-				writerSignature: EthCrypto.sign(privateKey, db.createSignHash('foo' + index, index)),
-				writerAddress,
-				schemaKey
+				value: index++
 			} : null
-			index++;
 			this.push(value)
 		}
 	})
 	reader.pipe(writer)
 	writer.on('finish', function (err) {
 		t.error(err, 'no error')
-		same('foo1', 1)
-		same('foo3', 3)
+		same('foo1', '1')
+		same('foo50', '50')
+		same('foo999', '999')
 	})
 
 	function same (key, val) {
 		db.get(key, function (err, node) {
-			console.log('key', key),
-			console.log('node', node);
-			console.log('err', err);
 			t.error(err, 'no error')
 			t.same(node.key, key)
 			t.same(node.value, val)
 		})
 	}
 })
-return
 */
 
 tape("create with precreated keypair", (t) => {
