@@ -1,105 +1,146 @@
-var tape = require('tape')
-var create = require('./helpers/create')
-var run = require('./helpers/run')
+const tape = require("tape");
+const create = require("./helpers/create");
+const run = require("./helpers/run");
+const EthCrypto = require("eth-crypto");
+const { privateKey, publicKey: writerAddress } = EthCrypto.createIdentity();
 
-tape('basic delete', function (t) {
-  var db = create.one()
+tape("basic delete", (t) => {
+	const db = create.one();
+	const schemaKey = "schema/*";
+	const schemaValue = {
+		keySchema: "*",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+	db.addSchema(schemaKey, schemaValue, EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue)), writerAddress, (err) => {
+		t.error(err, "no error");
 
-  db.put('hello', 'world', function () {
-    db.get('hello', function (err, node) {
-      t.error(err, 'no error')
-      t.same(node.value, 'world')
-      db.del('hello', function (err) {
-        t.error(err, 'no error')
-        db.get('hello', function (err, node) {
-          t.error(err, 'no error')
-          t.ok(!node, 'was deleted')
-          t.end()
-        })
-      })
-    })
-  })
-})
+		db.put("hello", "world", EthCrypto.sign(privateKey, db.createSignHash("hello", "world")), writerAddress, { schemaKey }, () => {
+			db.get("hello", (err, node) => {
+				t.error(err, "no error");
+				t.same(node.value, "world");
+				db.del("hello", EthCrypto.sign(privateKey, db.createSignHash("hello", "")), writerAddress, (err) => {
+					t.error(err, "no error");
+					db.get("hello", (err, node) => {
+						t.error(err, "no error");
+						t.ok(!node, "was deleted");
+						t.end();
+					});
+				});
+			});
+		});
+	});
+});
 
-tape('delete one in many', function (t) {
-  t.plan(1 + 2 + 2)
+tape("delete one in many", (t) => {
+	t.plan(1 + 1 + 2 + 2);
 
-  var db = create.one()
-  var keys = []
+	const db = create.one();
+	const schemaKey = "schema/*";
+	const schemaValue = {
+		keySchema: "*",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+	db.addSchema(schemaKey, schemaValue, EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue)), writerAddress, (err) => {
+		t.error(err, "no error");
 
-  for (var i = 0; i < 50; i++) {
-    keys.push('' + i)
-  }
+		const keys = [];
 
-  run(
-    keys.map(k => cb => db.put(k, k, cb)),
-    cb => db.del('42', cb),
-    done
-  )
+		for (let i = 0; i < 50; i++) {
+			keys.push("" + i);
+		}
 
-  function done (err) {
-    t.error(err, 'no error')
-    db.get('42', function (err, node) {
-      t.error(err, 'no error')
-      t.ok(!node, 'was deleted')
-    })
-    db.get('43', function (err, node) {
-      t.error(err, 'no erro')
-      t.same(node.value, '43')
-    })
-  }
-})
+		const done = (err) => {
+			t.error(err, "no error");
+			db.get("42", (err, node) => {
+				t.error(err, "no error");
+				t.ok(!node, "was deleted");
+			});
+			db.get("43", (err, node) => {
+				t.error(err, "no error");
+				t.same(node.value, "43");
+			});
+		};
 
-tape('delete one in many (iteration)', function (t) {
-  var db = create.one()
-  var keys = []
+		run(
+			keys.map((k) => (cb) => db.put(k, k, EthCrypto.sign(privateKey, db.createSignHash(k, k)), writerAddress, { schemaKey }, cb)),
+			(cb) => db.del("42", EthCrypto.sign(privateKey, db.createSignHash("42", "")), writerAddress, cb),
+			done
+		);
+	});
+});
 
-  for (var i = 0; i < 50; i++) {
-    keys.push('' + i)
-  }
+tape("delete one in many (iteration)", (t) => {
+	const db = create.one();
+	const schemaKey = "schema/*";
+	const schemaValue = {
+		keySchema: "*",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+	db.addSchema(schemaKey, schemaValue, EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue)), writerAddress, (err) => {
+		t.error(err, "no error");
 
-  run(
-    keys.map(k => cb => db.put(k, k, cb)),
-    cb => db.del('42', cb),
-    done
-  )
+		const keys = [];
 
-  function done (err) {
-    t.error(err, 'no error')
+		for (let i = 0; i < 50; i++) {
+			keys.push("" + i);
+		}
 
-    var ite = db.iterator()
-    var actual = []
+		const done = (err) => {
+			t.error(err, "no error");
 
-    ite.next(function loop (err, node) {
-      if (err) return t.error(err, 'no error')
+			const ite = db.iterator();
+			const actual = [];
 
-      if (!node) {
-        var expected = keys.slice(0, 42).concat(keys.slice(43))
-        t.same(actual.sort(), expected.sort(), 'all except deleted one')
-        t.end()
-        return
-      }
+			ite.next(function loop(err, node) {
+				if (err) return t.error(err, "no error");
 
-      actual.push(node.value)
-      ite.next(loop)
-    })
-  }
-})
+				if (!node) {
+					const expected = keys.slice(0, 42).concat(keys.slice(43));
+					t.same(actual.sort(), expected.sort(), "all except deleted one");
+					t.end();
+					return;
+				}
 
-tape('delete marks node as deleted', function (t) {
-  var db = create.one()
-  var expected = [{key: 'hello', value: 'world', deleted: false}, {key: 'hello', value: null, deleted: true}]
+				if (!node.isSchema) actual.push(node.value);
+				ite.next(loop);
+			});
+		};
 
-  db.put('hello', 'world', function () {
-    db.del('hello', function () {
-      db.createHistoryStream()
-        .on('data', function (data) {
-          t.same({key: data.key, value: data.value, deleted: data.deleted}, expected.shift())
-        })
-        .on('end', function () {
-          t.same(expected.length, 0)
-          t.end()
-        })
-    })
-  })
-})
+		run(
+			keys.map((k) => (cb) => db.put(k, k, EthCrypto.sign(privateKey, db.createSignHash(k, k)), writerAddress, { schemaKey }, cb)),
+			(cb) => db.del("42", EthCrypto.sign(privateKey, db.createSignHash("42", "")), writerAddress, cb),
+			done
+		);
+	});
+});
+
+tape("delete marks node as deleted", (t) => {
+	const db = create.one();
+	const schemaKey = "schema/*";
+	const schemaValue = {
+		keySchema: "*",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+	db.addSchema(schemaKey, schemaValue, EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue)), writerAddress, (err) => {
+		t.error(err, "no error");
+
+		const expected = [{ key: "hello", value: "world", deleted: false }, { key: "hello", value: "", deleted: true }];
+
+		db.put("hello", "world", EthCrypto.sign(privateKey, db.createSignHash("hello", "world")), writerAddress, { schemaKey }, () => {
+			db.del("hello", EthCrypto.sign(privateKey, db.createSignHash("hello", "")), writerAddress, (err) => {
+				db.createHistoryStream()
+					.on("data", (data) => {
+						if (!data.isSchema) t.same({ key: data.key, value: data.value, deleted: data.deleted }, expected.shift());
+					})
+					.on("end", () => {
+						t.same(expected.length, 0);
+						t.end();
+					});
+			});
+		});
+	});
+});
