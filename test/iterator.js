@@ -1,428 +1,1050 @@
-var tape = require('tape')
-var create = require('./helpers/create')
-var put = require('./helpers/put')
-var run = require('./helpers/run')
+const tape = require("tape");
+const create = require("./helpers/create");
+const put = require("./helpers/put");
+const run = require("./helpers/run");
+const EthCrypto = require("eth-crypto");
+const { privateKey, publicKey: writerAddress } = EthCrypto.createIdentity();
 
-tape('basic iteration', function (t) {
-  var db = create.one()
-  var vals = ['a', 'b', 'c']
-  var expected = toMap(vals)
+const range = (n, v) => {
+	// #0, #1, #2, ...
+	return new Array(n)
+		.join(".")
+		.split(".")
+		.map((a, i) => v + i);
+};
 
-  put(db, vals, function (err) {
-    t.error(err, 'no error')
-    all(db.iterator(), function (err, map) {
-      t.error(err, 'no error')
-      t.same(map, expected, 'iterated all values')
-      t.end()
-    })
-  })
-})
+const toMap = (list) => {
+	const map = {};
+	for (let i = 0; i < list.length; i++) {
+		map[list[i]] = list[i];
+	}
+	return map;
+};
 
-tape('iterate a big db', function (t) {
-  var db = create.one()
+const appendSchema = (list, schemaKey) => {
+	const listWithSchema = [];
+	for (let i = 0; i < list.length; i++) {
+		listWithSchema.push({ key: list[i], schemaKey: schemaKey });
+	}
+	return listWithSchema;
+};
 
-  var vals = range(1000, '#')
-  var expected = toMap(vals)
+const all = (ite, cb) => {
+	const vals = {};
 
-  put(db, vals, function (err) {
-    t.error(err, 'no error')
-    all(db.iterator(), function (err, map) {
-      t.error(err, 'no error')
-      t.same(map, expected, 'iterated all values')
-      t.end()
-    })
-  })
-})
+	ite.next(function loop(err, node) {
+		if (err) return cb(err);
+		if (!node) return cb(null, vals);
+		if (node.isSchema) {
+			ite.next(loop);
+		} else {
+			const key = Array.isArray(node) ? node[0].key : node.key;
+			if (vals[key]) return cb(new Error("duplicate node for " + key));
+			vals[key] = Array.isArray(node) ? node.map((n) => n.value).sort() : node.value;
+			ite.next(loop);
+		}
+	});
+};
 
-tape('prefix basic iteration', function (t) {
-  var db = create.one()
-  var vals = ['foo/a', 'foo/b', 'foo/c']
-  var expected = toMap(vals)
+const schemaKey = "schema/*";
+const schemaValue = {
+	keySchema: "*",
+	valueValidationKey: "",
+	keyValidation: ""
+};
 
-  vals = vals.concat(['a', 'b', 'c'])
+const schemaKey2 = "schema/*/*";
+const schemaValue2 = {
+	keySchema: "*/*",
+	valueValidationKey: "",
+	keyValidation: ""
+};
 
-  put(db, vals, function (err) {
-    t.error(err, 'no error')
-    all(db.iterator('foo'), function (err, map) {
-      t.error(err, 'no error')
-      t.same(map, expected, 'iterated all values')
-      t.end()
-    })
-  })
-})
+const schemaKey3 = "schema/*/*/*";
+const schemaValue3 = {
+	keySchema: "*/*/*",
+	valueValidationKey: "",
+	keyValidation: ""
+};
 
-tape('empty prefix iteration', function (t) {
-  var db = create.one()
-  var vals = ['foo/a', 'foo/b', 'foo/c']
-  var expected = {}
+const schemaKey4 = "schema/*/*/*/*";
+const schemaValue4 = {
+	keySchema: "*/*/*/*",
+	valueValidationKey: "",
+	keyValidation: ""
+};
 
-  put(db, vals, function (err) {
-    t.error(err, 'no error')
-    all(db.iterator('bar'), function (err, map) {
-      t.error(err, 'no error')
-      t.same(map, expected, 'iterated all values')
-      t.end()
-    })
-  })
-})
+tape("basic iteration", (t) => {
+	const db = create.one();
+	db.addSchema(schemaKey, schemaValue, EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue)), writerAddress, (err) => {
+		t.error(err, "no error");
 
-tape('prefix iterate a big db', function (t) {
-  var db = create.one()
+		const vals = ["a", "b", "c"];
+		const expected = toMap(vals);
 
-  var vals = range(1000, 'foo/#')
-  var expected = toMap(vals)
+		put(db, privateKey, writerAddress, vals, { schemaKey }, (err) => {
+			t.error(err, "no error");
+			all(db.iterator(), (err, map) => {
+				t.error(err, "no error");
+				t.same(map, expected, "iterated all values");
+				t.end();
+			});
+		});
+	});
+});
 
-  vals = vals.concat(range(1000, '#'))
+tape("iterate a big db", (t) => {
+	const db = create.one();
+	db.addSchema(schemaKey, schemaValue, EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue)), writerAddress, (err) => {
+		t.error(err, "no error");
 
-  put(db, vals, function (err) {
-    t.error(err, 'no error')
-    all(db.iterator('foo'), function (err, map) {
-      t.error(err, 'no error')
-      t.same(map, expected, 'iterated all values')
-      t.end()
-    })
-  })
-})
+		const vals = range(1000, "#");
+		const expected = toMap(vals);
 
-tape('non recursive iteration', function (t) {
-  var db = create.one()
+		put(db, privateKey, writerAddress, vals, { schemaKey }, (err) => {
+			t.error(err, "no error");
+			all(db.iterator(), (err, map) => {
+				t.error(err, "no error");
+				t.same(map, expected, "iterated all values");
+				t.end();
+			});
+		});
+	});
+});
 
-  var vals = [
-    'a',
-    'a/b/c/d',
-    'a/c',
-    'b',
-    'b/b/c',
-    'c/a',
-    'c'
-  ]
+tape("prefix basic iteration", (t) => {
+	const db = create.one();
+	const batchList = [
+		{
+			type: "add-schema",
+			key: schemaKey,
+			value: schemaValue,
+			writerSignature: EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue)),
+			writerAddress: writerAddress
+		},
+		{
+			type: "add-schema",
+			key: schemaKey2,
+			value: schemaValue2,
+			writerSignature: EthCrypto.sign(privateKey, db.createSignHash(schemaKey2, schemaValue2)),
+			writerAddress: writerAddress
+		}
+	];
+	db.batch(batchList, (err) => {
+		t.error(err, "no error");
 
-  put(db, vals, function (err) {
-    t.error(err, 'no error')
-    all(db.iterator({recursive: false}), function (err, map) {
-      t.error(err, 'no error')
-      var keys = Object.keys(map).map(k => k.split('/')[0])
-      t.same(keys.sort(), ['a', 'b', 'c'], 'iterated all values')
-      t.end()
-    })
-  })
-})
+		let vals = [
+			{ key: "foo/a", schemaKey: schemaKey2 },
+			{ key: "foo/b", schemaKey: schemaKey2 },
+			{ key: "foo/c", schemaKey: schemaKey2 }
+		];
+		const expected = toMap(["foo/a", "foo/b", "foo/c"]);
 
-tape('mixed nested and non nexted iteration', function (t) {
-  var db = create.one()
-  var vals = ['a', 'a/a', 'a/b', 'a/c', 'a/a/a', 'a/a/b', 'a/a/c']
-  var expected = toMap(vals)
+		vals = vals.concat([{ key: "a", schemaKey }, { key: "b", schemaKey }, { key: "c", schemaKey }]);
 
-  put(db, vals, function (err) {
-    t.error(err, 'no error')
-    all(db.iterator(), function (err, map) {
-      t.error(err, 'no error')
-      t.same(map, expected, 'iterated all values')
-      t.end()
-    })
-  })
-})
+		put(db, privateKey, writerAddress, vals, {}, (err) => {
+			t.error(err, "no error");
+			all(db.iterator("foo"), (err, map) => {
+				t.error(err, "no error");
+				t.same(map, expected, "iterated all values");
+				t.end();
+			});
+		});
+	});
+});
 
-tape('two writers, simple fork', function (t) {
-  t.plan(2 * 2 + 1)
+tape("empty prefix iteration", (t) => {
+	const db = create.one();
+	db.addSchema(
+		schemaKey2,
+		schemaValue2,
+		EthCrypto.sign(privateKey, db.createSignHash(schemaKey2, schemaValue2)),
+		writerAddress,
+		(err) => {
+			t.error(err, "no error");
 
-  create.two(function (db1, db2, replicate) {
-    run(
-      cb => db1.put('0', '0', cb),
-      replicate,
-      cb => db1.put('1', '1a', cb),
-      cb => db2.put('1', '1b', cb),
-      cb => db1.put('10', '10', cb),
-      replicate,
-      cb => db1.put('2', '2', cb),
-      cb => db1.put('1/0', '1/0', cb),
-      done
-    )
+			const vals = ["foo/a", "foo/b", "foo/c"];
+			const expected = {};
 
-    function done (err) {
-      t.error(err, 'no error')
-      all(db1.iterator(), ondb1all)
-      all(db2.iterator(), ondb2all)
-    }
+			put(db, privateKey, writerAddress, vals, { schemaKey: schemaKey2 }, (err) => {
+				t.error(err, "no error");
+				all(db.iterator("bar"), (err, map) => {
+					t.error(err, "no error");
+					t.same(map, expected, "iterated all values");
+					t.end();
+				});
+			});
+		}
+	);
+});
 
-    function ondb2all (err, map) {
-      t.error(err, 'no error')
-      t.same(map, {'0': ['0'], '1': ['1a', '1b'], '10': ['10']})
-    }
+tape("prefix iterate a big db", (t) => {
+	const db = create.one();
+	const batchList = [
+		{
+			type: "add-schema",
+			key: schemaKey,
+			value: schemaValue,
+			writerSignature: EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue)),
+			writerAddress: writerAddress
+		},
+		{
+			type: "add-schema",
+			key: schemaKey2,
+			value: schemaValue2,
+			writerSignature: EthCrypto.sign(privateKey, db.createSignHash(schemaKey2, schemaValue2)),
+			writerAddress: writerAddress
+		}
+	];
+	db.batch(batchList, (err) => {
+		t.error(err, "no error");
 
-    function ondb1all (err, map) {
-      t.error(err, 'no error')
-      t.same(map, {'0': ['0'], '1': ['1a', '1b'], '10': ['10'], '2': ['2'], '1/0': ['1/0']})
-    }
-  })
-})
+		let vals = range(1000, "foo/#");
+		const expected = toMap(vals);
+		let valsWithSchema = appendSchema(vals, schemaKey2);
 
-tape('two writers, one fork', function (t) {
-  create.two(function (db1, db2, replicate) {
-    run(
-      cb => db1.put('0', '0', cb),
-      cb => db2.put('2', '2', cb),
-      cb => db2.put('3', '3', cb),
-      cb => db2.put('4', '4', cb),
-      cb => db2.put('5', '5', cb),
-      cb => db2.put('6', '6', cb),
-      cb => db2.put('7', '7', cb),
-      cb => db2.put('8', '8', cb),
-      cb => db2.put('9', '9', cb),
-      cb => replicate(cb),
-      cb => db1.put('1', '1a', cb),
-      cb => db2.put('1', '1b', cb),
-      cb => replicate(cb),
-      cb => db1.put('0', '00', cb),
-      cb => replicate(cb),
-      cb => db2.put('hi', 'ho', cb),
-      done
-    )
+		valsWithSchema = valsWithSchema.concat(appendSchema(range(1000, "#"), schemaKey));
+		put(db, privateKey, writerAddress, valsWithSchema, {}, (err) => {
+			t.error(err, "no error");
+			all(db.iterator("foo"), (err, map) => {
+				t.error(err, "no error");
+				t.same(map, expected, "iterated all values");
+				t.end();
+			});
+		});
+	});
+});
 
-    function done (err) {
-      t.error(err, 'no error')
-      all(db1.iterator(), function (err, vals) {
-        t.error(err, 'no error')
-        t.same(vals, {
-          '0': ['00'],
-          '1': ['1a', '1b'],
-          '2': ['2'],
-          '3': ['3'],
-          '4': ['4'],
-          '5': ['5'],
-          '6': ['6'],
-          '7': ['7'],
-          '8': ['8'],
-          '9': ['9']
-        })
+tape("non recursive iteration", (t) => {
+	const db = create.one();
+	const batchList = [
+		{
+			type: "add-schema",
+			key: schemaKey,
+			value: schemaValue,
+			writerSignature: EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue)),
+			writerAddress: writerAddress
+		},
+		{
+			type: "add-schema",
+			key: schemaKey2,
+			value: schemaValue2,
+			writerSignature: EthCrypto.sign(privateKey, db.createSignHash(schemaKey2, schemaValue2)),
+			writerAddress: writerAddress
+		},
+		{
+			type: "add-schema",
+			key: schemaKey3,
+			value: schemaValue3,
+			writerSignature: EthCrypto.sign(privateKey, db.createSignHash(schemaKey3, schemaValue3)),
+			writerAddress: writerAddress
+		},
+		{
+			type: "add-schema",
+			key: schemaKey4,
+			value: schemaValue4,
+			writerSignature: EthCrypto.sign(privateKey, db.createSignHash(schemaKey4, schemaValue4)),
+			writerAddress: writerAddress
+		}
+	];
+	db.batch(batchList, (err) => {
+		t.error(err, "no error");
 
-        all(db2.iterator(), function (err, vals) {
-          t.error(err, 'no error')
-          t.same(vals, {
-            '0': ['00'],
-            '1': ['1a', '1b'],
-            '2': ['2'],
-            '3': ['3'],
-            '4': ['4'],
-            '5': ['5'],
-            '6': ['6'],
-            '7': ['7'],
-            '8': ['8'],
-            '9': ['9'],
-            'hi': ['ho']
-          })
-          t.end()
-        })
-      })
-    }
-  })
-})
+		const vals = [
+			{ key: "a", schemaKey },
+			{ key: "a/b/c/d", schemaKey: schemaKey4 },
+			{ key: "a/c", schemaKey: schemaKey2 },
+			{ key: "b", schemaKey },
+			{ key: "b/b/c", schemaKey: schemaKey3 },
+			{ key: "c/a", schemaKey: schemaKey2 },
+			{ key: "c", schemaKey }
+		];
 
-tape('two writers, one fork, many values', function (t) {
-  var r = range(100, 'i')
+		put(db, privateKey, writerAddress, vals, {}, (err) => {
+			t.error(err, "no error");
+			all(db.iterator({ recursive: false }), (err, map) => {
+				t.error(err, "no error");
+				const keys = Object.keys(map).map((k) => k.split("/")[0]);
+				t.same(keys.sort(), ["a", "b", "c"], "iterated all values");
+				t.end();
+			});
+		});
+	});
+});
 
-  create.two(function (db1, db2, replicate) {
-    run(
-      cb => db1.put('0', '0', cb),
-      cb => db2.put('2', '2', cb),
-      cb => db2.put('3', '3', cb),
-      cb => db2.put('4', '4', cb),
-      cb => db2.put('5', '5', cb),
-      cb => db2.put('6', '6', cb),
-      cb => db2.put('7', '7', cb),
-      cb => db2.put('8', '8', cb),
-      cb => db2.put('9', '9', cb),
-      cb => replicate(cb),
-      cb => db1.put('1', '1a', cb),
-      cb => db2.put('1', '1b', cb),
-      cb => replicate(cb),
-      cb => db1.put('0', '00', cb),
-      r.map(i => cb => db1.put(i, i, cb)),
-      cb => replicate(cb),
-      done
-    )
+tape("mixed nested and non nexted iteration", (t) => {
+	const db = create.one();
+	const batchList = [
+		{
+			type: "add-schema",
+			key: schemaKey,
+			value: schemaValue,
+			writerSignature: EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue)),
+			writerAddress: writerAddress
+		},
+		{
+			type: "add-schema",
+			key: schemaKey2,
+			value: schemaValue2,
+			writerSignature: EthCrypto.sign(privateKey, db.createSignHash(schemaKey2, schemaValue2)),
+			writerAddress: writerAddress
+		},
+		{
+			type: "add-schema",
+			key: schemaKey3,
+			value: schemaValue3,
+			writerSignature: EthCrypto.sign(privateKey, db.createSignHash(schemaKey3, schemaValue3)),
+			writerAddress: writerAddress
+		}
+	];
+	db.batch(batchList, (err) => {
+		t.error(err, "no error");
 
-    function done (err) {
-      t.error(err, 'no error')
+		const vals = [
+			{ key: "a", schemaKey },
+			{ key: "a/a", schemaKey: schemaKey2 },
+			{ key: "a/b", schemaKey: schemaKey2 },
+			{ key: "a/c", schemaKey: schemaKey2 },
+			{ key: "a/a/a", schemaKey: schemaKey3 },
+			{ key: "a/a/b", schemaKey: schemaKey3 },
+			{ key: "a/a/c", schemaKey: schemaKey3 }
+		];
+		const expected = toMap(["a", "a/a", "a/b", "a/c", "a/a/a", "a/a/b", "a/a/c"]);
 
-      var expected = {
-        '0': ['00'],
-        '1': ['1a', '1b'],
-        '2': ['2'],
-        '3': ['3'],
-        '4': ['4'],
-        '5': ['5'],
-        '6': ['6'],
-        '7': ['7'],
-        '8': ['8'],
-        '9': ['9']
-      }
+		put(db, privateKey, writerAddress, vals, {}, (err) => {
+			t.error(err, "no error");
+			all(db.iterator(), (err, map) => {
+				t.error(err, "no error");
+				t.same(map, expected, "iterated all values");
+				t.end();
+			});
+		});
+	});
+});
 
-      r.forEach(function (v) {
-        expected[v] = [v]
-      })
+tape("two writers, simple fork", (t) => {
+	t.plan(2 + 2 * 2 + 1);
 
-      all(db1.iterator(), function (err, vals) {
-        t.error(err, 'no error')
-        t.same(vals, expected)
-        all(db2.iterator(), function (err, vals) {
-          t.error(err, 'no error')
-          t.same(vals, expected)
-          t.end()
-        })
-      })
-    }
-  })
-})
+	create.two((db1, db2, replicate) => {
+		const batchList1 = [
+			{
+				type: "add-schema",
+				key: schemaKey,
+				value: schemaValue,
+				writerSignature: EthCrypto.sign(privateKey, db1.createSignHash(schemaKey, schemaValue)),
+				writerAddress: writerAddress
+			},
+			{
+				type: "add-schema",
+				key: schemaKey2,
+				value: schemaValue2,
+				writerSignature: EthCrypto.sign(privateKey, db1.createSignHash(schemaKey2, schemaValue2)),
+				writerAddress: writerAddress
+			}
+		];
+		db1.batch(batchList1, (err) => {
+			t.error(err, "no error");
 
-tape('two writers, fork', function (t) {
-  t.plan(2 * 2 + 1)
+			const batchList2 = [
+				{
+					type: "add-schema",
+					key: schemaKey,
+					value: schemaValue,
+					writerSignature: EthCrypto.sign(privateKey, db2.createSignHash(schemaKey, schemaValue)),
+					writerAddress: writerAddress
+				},
+				{
+					type: "add-schema",
+					key: schemaKey2,
+					value: schemaValue2,
+					writerSignature: EthCrypto.sign(privateKey, db2.createSignHash(schemaKey2, schemaValue2)),
+					writerAddress: writerAddress
+				}
+			];
+			db2.batch(batchList2, (err) => {
+				t.error(err, "no error");
 
-  create.two(function (a, b, replicate) {
-    run(
-      cb => a.put('a', 'a', cb),
-      replicate,
-      cb => b.put('a', 'b', cb),
-      cb => a.put('b', 'c', cb),
-      replicate,
-      done
-    )
+				const done = (err) => {
+					t.error(err, "no error");
+					all(db1.iterator(), ondb1all);
+					all(db2.iterator(), ondb2all);
+				};
 
-    function done (err) {
-      t.error(err, 'no error')
+				const ondb2all = (err, map) => {
+					t.error(err, "no error");
+					delete map["schema/*"];
+					delete map["schema/*/*"];
+					t.same(map, { "0": ["0"], "1": ["1a", "1b"], "10": ["10"] });
+				};
 
-      all(a.iterator(), onall)
-      all(b.iterator(), onall)
+				const ondb1all = (err, map) => {
+					t.error(err, "no error");
+					delete map["schema/*"];
+					delete map["schema/*/*"];
+					t.same(map, { "0": ["0"], "1": ["1a", "1b"], "10": ["10"], "2": ["2"], "1/0": ["1/0"] });
+				};
 
-      function onall (err, map) {
-        t.error(err, 'no error')
-        t.same(map, {b: ['c'], a: ['b']})
-      }
-    }
-  })
-})
+				run(
+					(cb) => db1.put("0", "0", EthCrypto.sign(privateKey, db1.createSignHash("0", "0")), writerAddress, { schemaKey }, cb),
+					replicate,
+					(cb) => db1.put("1", "1a", EthCrypto.sign(privateKey, db1.createSignHash("1", "1a")), writerAddress, { schemaKey }, cb),
+					(cb) => db2.put("1", "1b", EthCrypto.sign(privateKey, db2.createSignHash("1", "1b")), writerAddress, { schemaKey }, cb),
+					(cb) =>
+						db1.put("10", "10", EthCrypto.sign(privateKey, db1.createSignHash("10", "10")), writerAddress, { schemaKey }, cb),
+					replicate,
+					(cb) => db1.put("2", "2", EthCrypto.sign(privateKey, db1.createSignHash("2", "2")), writerAddress, { schemaKey }, cb),
+					(cb) =>
+						db1.put(
+							"1/0",
+							"1/0",
+							EthCrypto.sign(privateKey, db1.createSignHash("1/0", "1/0")),
+							writerAddress,
+							{ schemaKey: schemaKey2 },
+							cb
+						),
+					done
+				);
+			});
+		});
+	});
+});
 
-tape('three writers, two forks', function (t) {
-  t.plan(2 * 3 + 1)
+tape("two writers, one fork", (t) => {
+	create.two((db1, db2, replicate) => {
+		db1.addSchema(
+			schemaKey,
+			schemaValue,
+			EthCrypto.sign(privateKey, db1.createSignHash(schemaKey, schemaValue)),
+			writerAddress,
+			(err) => {
+				t.error(err, "no error");
+				db2.addSchema(
+					schemaKey,
+					schemaValue,
+					EthCrypto.sign(privateKey, db2.createSignHash(schemaKey, schemaValue)),
+					writerAddress,
+					(err) => {
+						t.error(err, "no error");
 
-  var replicate = require('./helpers/replicate')
+						const done = (err) => {
+							t.error(err, "no error");
+							all(db1.iterator(), (err, vals) => {
+								t.error(err, "no error");
+								delete vals["schema/*"];
+								t.same(vals, {
+									"0": ["00"],
+									"1": ["1a", "1b"],
+									"2": ["2"],
+									"3": ["3"],
+									"4": ["4"],
+									"5": ["5"],
+									"6": ["6"],
+									"7": ["7"],
+									"8": ["8"],
+									"9": ["9"]
+								});
 
-  create.three(function (a, b, c, replicateAll) {
-    run(
-      cb => a.put('a', 'a', cb),
-      replicateAll,
-      cb => b.put('a', 'ab', cb),
-      cb => a.put('some', 'some', cb),
-      cb => replicate(a, c, cb),
-      cb => c.put('c', 'c', cb),
-      replicateAll,
-      done
-    )
+								all(db2.iterator(), (err, vals) => {
+									t.error(err, "no error");
+									delete vals["schema/*"];
+									t.same(vals, {
+										"0": ["00"],
+										"1": ["1a", "1b"],
+										"2": ["2"],
+										"3": ["3"],
+										"4": ["4"],
+										"5": ["5"],
+										"6": ["6"],
+										"7": ["7"],
+										"8": ["8"],
+										"9": ["9"],
+										hi: ["ho"]
+									});
+									t.end();
+								});
+							});
+						};
 
-    function done (err) {
-      t.error(err, 'no error')
-      all(a.iterator(), onall)
-      all(b.iterator(), onall)
-      all(c.iterator(), onall)
+						run(
+							(cb) =>
+								db1.put(
+									"0",
+									"0",
+									EthCrypto.sign(privateKey, db1.createSignHash("0", "0")),
+									writerAddress,
+									{ schemaKey },
+									cb
+								),
+							(cb) =>
+								db2.put(
+									"2",
+									"2",
+									EthCrypto.sign(privateKey, db2.createSignHash("2", "2")),
+									writerAddress,
+									{ schemaKey },
+									cb
+								),
+							(cb) =>
+								db2.put(
+									"3",
+									"3",
+									EthCrypto.sign(privateKey, db2.createSignHash("3", "3")),
+									writerAddress,
+									{ schemaKey },
+									cb
+								),
+							(cb) =>
+								db2.put(
+									"4",
+									"4",
+									EthCrypto.sign(privateKey, db2.createSignHash("4", "4")),
+									writerAddress,
+									{ schemaKey },
+									cb
+								),
+							(cb) =>
+								db2.put(
+									"5",
+									"5",
+									EthCrypto.sign(privateKey, db2.createSignHash("5", "5")),
+									writerAddress,
+									{ schemaKey },
+									cb
+								),
+							(cb) =>
+								db2.put(
+									"6",
+									"6",
+									EthCrypto.sign(privateKey, db2.createSignHash("6", "6")),
+									writerAddress,
+									{ schemaKey },
+									cb
+								),
+							(cb) =>
+								db2.put(
+									"7",
+									"7",
+									EthCrypto.sign(privateKey, db2.createSignHash("7", "7")),
+									writerAddress,
+									{ schemaKey },
+									cb
+								),
+							(cb) =>
+								db2.put(
+									"8",
+									"8",
+									EthCrypto.sign(privateKey, db2.createSignHash("8", "8")),
+									writerAddress,
+									{ schemaKey },
+									cb
+								),
+							(cb) =>
+								db2.put(
+									"9",
+									"9",
+									EthCrypto.sign(privateKey, db2.createSignHash("9", "9")),
+									writerAddress,
+									{ schemaKey },
+									cb
+								),
+							(cb) => replicate(cb),
+							(cb) =>
+								db1.put(
+									"1",
+									"1a",
+									EthCrypto.sign(privateKey, db1.createSignHash("1", "1a")),
+									writerAddress,
+									{ schemaKey },
+									cb
+								),
+							(cb) =>
+								db2.put(
+									"1",
+									"1b",
+									EthCrypto.sign(privateKey, db2.createSignHash("1", "1b")),
+									writerAddress,
+									{ schemaKey },
+									cb
+								),
+							(cb) => replicate(cb),
+							(cb) =>
+								db1.put(
+									"0",
+									"00",
+									EthCrypto.sign(privateKey, db1.createSignHash("0", "00")),
+									writerAddress,
+									{ schemaKey },
+									cb
+								),
+							(cb) => replicate(cb),
+							(cb) =>
+								db2.put(
+									"hi",
+									"ho",
+									EthCrypto.sign(privateKey, db2.createSignHash("hi", "ho")),
+									writerAddress,
+									{ schemaKey },
+									cb
+								),
+							done
+						);
+					}
+				);
+			}
+		);
+	});
+});
 
-      function onall (err, map) {
-        t.error(err, 'no error')
-        t.same(map, {a: ['ab'], c: ['c'], some: ['some']})
-      }
-    }
-  })
-})
+tape("two writers, one fork, many values", (t) => {
+	const r = range(100, "i");
 
-tape('list buffers an iterator', function (t) {
-  var db = create.one()
+	create.two((db1, db2, replicate) => {
+		db1.addSchema(
+			schemaKey,
+			schemaValue,
+			EthCrypto.sign(privateKey, db1.createSignHash(schemaKey, schemaValue)),
+			writerAddress,
+			(err) => {
+				t.error(err, "no error");
+				db2.addSchema(
+					schemaKey,
+					schemaValue,
+					EthCrypto.sign(privateKey, db2.createSignHash(schemaKey, schemaValue)),
+					writerAddress,
+					(err) => {
+						t.error(err, "no error");
 
-  put(db, ['a', 'b', 'b/c'], function (err) {
-    t.error(err, 'no error')
-    db.list(function (err, all) {
-      t.error(err, 'no error')
-      t.same(all.map(v => v.key).sort(), ['a', 'b', 'b/c'])
-      db.list('b', {gt: true}, function (err, all) {
-        t.error(err, 'no error')
-        t.same(all.length, 1)
-        t.same(all[0].key, 'b/c')
-        t.end()
-      })
-    })
-  })
-})
+						const done = (err) => {
+							t.error(err, "no error");
 
-tape('options to get deleted keys', function (t) {
-  var db = create.one()
-  run(
-    cb => put(db, ['a', 'b', 'c'], cb),
-    cb => db.del('a', cb),
-    done
-  )
-  function done () {
-    all(db.iterator({ deletes: true }), function (err, map) {
-      t.error(err, 'no error')
-      t.same(map, { a: null, 'b': 'b', c: 'c' }, 'iterated all values')
-      t.end()
-    })
-  }
-})
+							const expected = {
+								"0": ["00"],
+								"1": ["1a", "1b"],
+								"2": ["2"],
+								"3": ["3"],
+								"4": ["4"],
+								"5": ["5"],
+								"6": ["6"],
+								"7": ["7"],
+								"8": ["8"],
+								"9": ["9"]
+							};
 
-tape('three writers, two forks with deletes', function (t) {
-  t.plan(2 * 3 + 1)
+							r.forEach((v) => {
+								expected[v] = [v];
+							});
 
-  var replicate = require('./helpers/replicate')
+							all(db1.iterator(), (err, vals) => {
+								t.error(err, "no error");
+								delete vals["schema/*"];
+								t.same(vals, expected);
+								all(db2.iterator(), (err, vals) => {
+									t.error(err, "no error");
+									delete vals["schema/*"];
+									t.same(vals, expected);
+									t.end();
+								});
+							});
+						};
 
-  create.three(function (a, b, c, replicateAll) {
-    run(
-      cb => a.put('a', 'a', cb),
-      replicateAll,
-      cb => b.put('a', 'ab', cb),
-      cb => a.put('some', 'some', cb),
-      cb => replicate(a, c, cb),
-      cb => c.put('c', 'c', cb),
-      cb => c.del('c', cb),
-      cb => a.del('a', cb),
-      cb => a.del('some', cb),
-      replicateAll,
-      done
-    )
+						run(
+							(cb) =>
+								db1.put(
+									"0",
+									"0",
+									EthCrypto.sign(privateKey, db1.createSignHash("0", "0")),
+									writerAddress,
+									{ schemaKey },
+									cb
+								),
+							(cb) =>
+								db2.put(
+									"2",
+									"2",
+									EthCrypto.sign(privateKey, db2.createSignHash("2", "2")),
+									writerAddress,
+									{ schemaKey },
+									cb
+								),
+							(cb) =>
+								db2.put(
+									"3",
+									"3",
+									EthCrypto.sign(privateKey, db2.createSignHash("3", "3")),
+									writerAddress,
+									{ schemaKey },
+									cb
+								),
+							(cb) =>
+								db2.put(
+									"4",
+									"4",
+									EthCrypto.sign(privateKey, db2.createSignHash("4", "4")),
+									writerAddress,
+									{ schemaKey },
+									cb
+								),
+							(cb) =>
+								db2.put(
+									"5",
+									"5",
+									EthCrypto.sign(privateKey, db2.createSignHash("5", "5")),
+									writerAddress,
+									{ schemaKey },
+									cb
+								),
+							(cb) =>
+								db2.put(
+									"6",
+									"6",
+									EthCrypto.sign(privateKey, db2.createSignHash("6", "6")),
+									writerAddress,
+									{ schemaKey },
+									cb
+								),
+							(cb) =>
+								db2.put(
+									"7",
+									"7",
+									EthCrypto.sign(privateKey, db2.createSignHash("7", "7")),
+									writerAddress,
+									{ schemaKey },
+									cb
+								),
+							(cb) =>
+								db2.put(
+									"8",
+									"8",
+									EthCrypto.sign(privateKey, db2.createSignHash("8", "8")),
+									writerAddress,
+									{ schemaKey },
+									cb
+								),
+							(cb) =>
+								db2.put(
+									"9",
+									"9",
+									EthCrypto.sign(privateKey, db2.createSignHash("9", "9")),
+									writerAddress,
+									{ schemaKey },
+									cb
+								),
+							(cb) => replicate(cb),
+							(cb) =>
+								db1.put(
+									"1",
+									"1a",
+									EthCrypto.sign(privateKey, db1.createSignHash("1", "1a")),
+									writerAddress,
+									{ schemaKey },
+									cb
+								),
+							(cb) =>
+								db2.put(
+									"1",
+									"1b",
+									EthCrypto.sign(privateKey, db2.createSignHash("1", "1b")),
+									writerAddress,
+									{ schemaKey },
+									cb
+								),
+							(cb) => replicate(cb),
+							(cb) =>
+								db1.put(
+									"0",
+									"00",
+									EthCrypto.sign(privateKey, db1.createSignHash("0", "00")),
+									writerAddress,
+									{ schemaKey },
+									cb
+								),
+							r.map((i) => (cb) =>
+								db1.put(i, i, EthCrypto.sign(privateKey, db1.createSignHash(i, i)), writerAddress, { schemaKey }, cb)
+							),
+							(cb) => replicate(cb),
+							done
+						);
+					}
+				);
+			}
+		);
+	});
+});
 
-    function done (err) {
-      t.error(err, 'no error')
-      all(a.iterator({ deletes: true }), onall)
-      all(b.iterator({ deletes: true }), onall)
-      all(c.iterator({ deletes: true }), onall)
+tape("two writers, fork", (t) => {
+	t.plan(2 + 2 * 2 + 1);
 
-      function onall (err, map) {
-        t.error(err, 'no error')
-        t.same(map, {a: ['ab', null], c: [null], some: [null]})
-      }
-    }
-  })
-})
+	create.two((a, b, replicate) => {
+		a.addSchema(schemaKey, schemaValue, EthCrypto.sign(privateKey, a.createSignHash(schemaKey, schemaValue)), writerAddress, (err) => {
+			t.error(err, "no error");
+			b.addSchema(
+				schemaKey,
+				schemaValue,
+				EthCrypto.sign(privateKey, b.createSignHash(schemaKey, schemaValue)),
+				writerAddress,
+				(err) => {
+					t.error(err, "no error");
 
-function range (n, v) {
-  // #0, #1, #2, ...
-  return new Array(n).join('.').split('.').map((a, i) => v + i)
-}
+					const done = (err) => {
+						t.error(err, "no error");
 
-function toMap (list) {
-  var map = {}
-  for (var i = 0; i < list.length; i++) {
-    map[list[i]] = list[i]
-  }
-  return map
-}
+						const onall = (err, map) => {
+							t.error(err, "no error");
+							delete map["schema/*"];
+							t.same(map, { b: ["c"], a: ["b"] });
+						};
 
-function all (ite, cb) {
-  var vals = {}
+						all(a.iterator(), onall);
+						all(b.iterator(), onall);
+					};
 
-  ite.next(function loop (err, node) {
-    if (err) return cb(err)
-    if (!node) return cb(null, vals)
-    var key = Array.isArray(node) ? node[0].key : node.key
-    if (vals[key]) return cb(new Error('duplicate node for ' + key))
-    vals[key] = Array.isArray(node) ? node.map(n => n.value).sort() : node.value
-    ite.next(loop)
-  })
-}
+					run(
+						(cb) => a.put("a", "a", EthCrypto.sign(privateKey, a.createSignHash("a", "a")), writerAddress, { schemaKey }, cb),
+						replicate,
+						(cb) => b.put("a", "b", EthCrypto.sign(privateKey, b.createSignHash("a", "b")), writerAddress, { schemaKey }, cb),
+						(cb) => a.put("b", "c", EthCrypto.sign(privateKey, a.createSignHash("b", "c")), writerAddress, { schemaKey }, cb),
+						replicate,
+						done
+					);
+				}
+			);
+		});
+	});
+});
+
+tape("three writers, two forks", (t) => {
+	t.plan(3 + 2 * 3 + 1);
+
+	const replicate = require("./helpers/replicate");
+
+	create.three((a, b, c, replicateAll) => {
+		a.addSchema(schemaKey, schemaValue, EthCrypto.sign(privateKey, a.createSignHash(schemaKey, schemaValue)), writerAddress, (err) => {
+			t.error(err, "no error");
+			b.addSchema(
+				schemaKey,
+				schemaValue,
+				EthCrypto.sign(privateKey, b.createSignHash(schemaKey, schemaValue)),
+				writerAddress,
+				(err) => {
+					t.error(err, "no error");
+					c.addSchema(
+						schemaKey,
+						schemaValue,
+						EthCrypto.sign(privateKey, c.createSignHash(schemaKey, schemaValue)),
+						writerAddress,
+						(err) => {
+							t.error(err, "no error");
+
+							const done = (err) => {
+								t.error(err, "no error");
+
+								const onall = (err, map) => {
+									t.error(err, "no error");
+									delete map["schema/*"];
+									t.same(map, { a: ["ab"], c: ["c"], some: ["some"] });
+								};
+
+								all(a.iterator(), onall);
+								all(b.iterator(), onall);
+								all(c.iterator(), onall);
+							};
+
+							run(
+								(cb) =>
+									a.put(
+										"a",
+										"a",
+										EthCrypto.sign(privateKey, a.createSignHash("a", "a")),
+										writerAddress,
+										{ schemaKey },
+										cb
+									),
+								replicateAll,
+								(cb) =>
+									b.put(
+										"a",
+										"ab",
+										EthCrypto.sign(privateKey, b.createSignHash("a", "ab")),
+										writerAddress,
+										{ schemaKey },
+										cb
+									),
+								(cb) =>
+									a.put(
+										"some",
+										"some",
+										EthCrypto.sign(privateKey, a.createSignHash("some", "some")),
+										writerAddress,
+										{ schemaKey },
+										cb
+									),
+								(cb) => replicate(a, c, cb),
+								(cb) =>
+									c.put(
+										"c",
+										"c",
+										EthCrypto.sign(privateKey, c.createSignHash("c", "c")),
+										writerAddress,
+										{ schemaKey },
+										cb
+									),
+								replicateAll,
+								done
+							);
+						}
+					);
+				}
+			);
+		});
+	});
+});
+
+tape("list buffers an iterator", (t) => {
+	const db = create.one();
+
+	const batchList = [
+		{
+			type: "add-schema",
+			key: schemaKey,
+			value: schemaValue,
+			writerSignature: EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue)),
+			writerAddress: writerAddress
+		},
+		{
+			type: "add-schema",
+			key: schemaKey2,
+			value: schemaValue2,
+			writerSignature: EthCrypto.sign(privateKey, db.createSignHash(schemaKey2, schemaValue2)),
+			writerAddress: writerAddress
+		}
+	];
+	db.batch(batchList, (err) => {
+		t.error(err, "no error");
+
+		const vals = [{ key: "a", schemaKey }, { key: "b", schemaKey }, { key: "b/c", schemaKey: schemaKey2 }];
+		put(db, privateKey, writerAddress, vals, {}, (err) => {
+			t.error(err, "no error");
+			db.list((err, all) => {
+				t.error(err, "no error");
+				t.same(all.map((v) => v.key).sort(), ["a", "b", "b/c", "schema/*", "schema/*/*"]);
+				db.list("b", { gt: true }, (err, all) => {
+					t.error(err, "no error");
+					t.same(all.length, 1);
+					t.same(all[0].key, "b/c");
+					t.end();
+				});
+			});
+		});
+	});
+});
+
+tape("options to get deleted keys", (t) => {
+	const db = create.one();
+	db.addSchema(schemaKey, schemaValue, EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue)), writerAddress, (err) => {
+		t.error(err, "no error");
+
+		const done = () => {
+			all(db.iterator({ deletes: true }), (err, map) => {
+				t.error(err, "no error");
+				delete map["schema/*"];
+				t.same(map, { a: "", b: "b", c: "c" }, "iterated all values");
+				t.end();
+			});
+		};
+
+		run(
+			(cb) => put(db, privateKey, writerAddress, ["a", "b", "c"], { schemaKey }, cb),
+			(cb) => db.del("a", EthCrypto.sign(privateKey, db.createSignHash("a", "")), writerAddress, cb),
+			done
+		);
+	});
+});
+
+tape("three writers, two forks with deletes", (t) => {
+	t.plan(3 + 2 * 3 + 1);
+
+	const replicate = require("./helpers/replicate");
+
+	create.three(function(a, b, c, replicateAll) {
+		a.addSchema(schemaKey, schemaValue, EthCrypto.sign(privateKey, a.createSignHash(schemaKey, schemaValue)), writerAddress, (err) => {
+			t.error(err, "no error");
+			b.addSchema(
+				schemaKey,
+				schemaValue,
+				EthCrypto.sign(privateKey, b.createSignHash(schemaKey, schemaValue)),
+				writerAddress,
+				(err) => {
+					t.error(err, "no error");
+					c.addSchema(
+						schemaKey,
+						schemaValue,
+						EthCrypto.sign(privateKey, c.createSignHash(schemaKey, schemaValue)),
+						writerAddress,
+						(err) => {
+							t.error(err, "no error");
+
+							const done = (err) => {
+								t.error(err, "no error");
+								const onall = (err, map) => {
+									t.error(err, "no error");
+									delete map["schema/*"];
+									t.same(map, { a: ["", "ab"], c: [""], some: [""] });
+								};
+
+								all(a.iterator({ deletes: true }), onall);
+								all(b.iterator({ deletes: true }), onall);
+								all(c.iterator({ deletes: true }), onall);
+							};
+
+							run(
+								(cb) =>
+									a.put(
+										"a",
+										"a",
+										EthCrypto.sign(privateKey, a.createSignHash("a", "a")),
+										writerAddress,
+										{ schemaKey },
+										cb
+									),
+								replicateAll,
+								(cb) =>
+									b.put(
+										"a",
+										"ab",
+										EthCrypto.sign(privateKey, b.createSignHash("a", "ab")),
+										writerAddress,
+										{ schemaKey },
+										cb
+									),
+								(cb) =>
+									a.put(
+										"some",
+										"some",
+										EthCrypto.sign(privateKey, a.createSignHash("some", "some")),
+										writerAddress,
+										{ schemaKey },
+										cb
+									),
+								(cb) => replicate(a, c, cb),
+								(cb) =>
+									c.put(
+										"c",
+										"c",
+										EthCrypto.sign(privateKey, c.createSignHash("c", "c")),
+										writerAddress,
+										{ schemaKey },
+										cb
+									),
+								(cb) => c.del("c", EthCrypto.sign(privateKey, c.createSignHash("c", "")), writerAddress, cb),
+								(cb) => a.del("a", EthCrypto.sign(privateKey, a.createSignHash("a", "")), writerAddress, cb),
+								(cb) => a.del("some", EthCrypto.sign(privateKey, a.createSignHash("some", "")), writerAddress, cb),
+								replicateAll,
+								done
+							);
+						}
+					);
+				}
+			);
+		});
+	});
+});
