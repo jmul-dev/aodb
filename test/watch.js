@@ -44,7 +44,23 @@ tape("basic watch", (t) => {
 tape("watch prefix", (t) => {
 	const db = create.one();
 	let changed = false;
-	db.addSchema(schemaKey, schemaValue, EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue)), writerAddress, (err) => {
+	const batchList = [
+		{
+			type: "add-schema",
+			key: schemaKey,
+			value: schemaValue,
+			writerSignature: EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue)),
+			writerAddress: writerAddress
+		},
+		{
+			type: "add-schema",
+			key: schemaKey2,
+			value: schemaValue2,
+			writerSignature: EthCrypto.sign(privateKey, db.createSignHash(schemaKey2, schemaValue2)),
+			writerAddress: writerAddress
+		}
+	];
+	db.batch(batchList, (err) => {
 		t.error(err, "no error");
 
 		db.watch("foo", () => {
@@ -53,10 +69,12 @@ tape("watch prefix", (t) => {
 		});
 
 		db.put("hello", "world", EthCrypto.sign(privateKey, db.createSignHash("hello", "world")), writerAddress, { schemaKey }, (err) => {
-			t.error(err);
+			t.error(err, "you are here");
 			setImmediate(() => {
 				changed = true;
-				db.put("foo/bar", "baz", EthCrypto.sign(privateKey, db.createSignHash("foo/bar", "baz")), writerAddress, { schemaKey });
+				db.put("foo/bar", "baz", EthCrypto.sign(privateKey, db.createSignHash("foo/bar", "baz")), writerAddress, {
+					schemaKey: schemaKey2
+				});
 			});
 		});
 	});
