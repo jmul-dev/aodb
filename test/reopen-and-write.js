@@ -70,7 +70,7 @@ tape("3 writers, re-open and write, re-open again", (t) => {
 							};
 
 							const reopenDb = (cb) => {
-								reopened = aodb(reuseStorage(a), { valueEncoding: "json" });
+								reopened = new aodb(reuseStorage(a), { valueEncoding: "json" });
 								reopened.ready((err) => {
 									t.error(err, "no error");
 									cb();

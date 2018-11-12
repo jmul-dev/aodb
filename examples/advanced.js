@@ -4,7 +4,7 @@ const EthCrypto = require("eth-crypto");
 const { privateKey, publicKey: writerAddress } = EthCrypto.createIdentity();
 const { privateKey: privateKey2, publicKey: writerAddress2 } = EthCrypto.createIdentity();
 
-const db = aodb("./my.db", {
+const db = new aodb("./my.db", {
 	valueEncoding: "json",
 	reduce: (a, b) => a
 });

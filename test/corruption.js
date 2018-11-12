@@ -46,7 +46,7 @@ tape("feed with corrupted inflate generates error", (t) => {
 			};
 
 			const openCorruptedDb = (cb) => {
-				corrupted = aodb(reuseStorage(a));
+				corrupted = new aodb(reuseStorage(a));
 				corrupted.ready((err) => {
 					console.log("corrupted", err);
 					t.ok(err, "expected error");

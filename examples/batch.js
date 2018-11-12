@@ -6,7 +6,7 @@ const { privateKey: privateKey2, publicKey: writerAddress2 } = EthCrypto.createI
 const { privateKey: privateKey3, publicKey: writerAddress3 } = EthCrypto.createIdentity();
 const { privateKey: privateKey4, publicKey: writerAddress4 } = EthCrypto.createIdentity();
 
-const db = aodb("./my.db", {
+const db = new aodb("./my.db", {
 	valueEncoding: "json",
 	reduce: (a, b) => a
 });
