@@ -1,6 +1,6 @@
 {
 	"name": "aodb",
-	"version": "0.0.1",
+	"version": "1.0.0",
 	"description": "Distributed scalable database with signature authentication and node validation on key writes",
 	"main": "index.js",
 	"dependencies": {
