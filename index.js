@@ -1,33 +1,33 @@
-var hypercore = require('hypercore')
-var protocol = require('hypercore-protocol')
-var thunky = require('thunky')
-var remove = require('unordered-array-remove')
-var toStream = require('nanoiterator/to-stream')
-var varint = require('varint')
-var mutexify = require('mutexify')
-var codecs = require('codecs')
-var raf = require('random-access-file')
-var path = require('path')
-var util = require('util')
-var bulk = require('bulk-write-stream')
-var events = require('events')
-var sodium = require('sodium-universal')
-var alru = require('array-lru')
-var inherits = require('inherits')
-var hash = require('./lib/hash')
-var iterator = require('./lib/iterator')
-var differ = require('./lib/differ')
-var history = require('./lib/history')
-var keyHistory = require('./lib/key-history')
-var get = require('./lib/get')
-var put = require('./lib/put')
-var messages = require('./lib/messages')
-var trie = require('./lib/trie-encoding')
-var watch = require('./lib/watch')
-var normalizeKey = require('./lib/normalize')
-var derive = require('./lib/derive')
-var EthCrypto = require('eth-crypto');
-var validate = require('validate.js');
+const hypercore = require('hypercore')
+const protocol = require('hypercore-protocol')
+const thunky = require('thunky')
+const remove = require('unordered-array-remove')
+const toStream = require('nanoiterator/to-stream')
+const varint = require('varint')
+const mutexify = require('mutexify')
+const codecs = require('codecs')
+const raf = require('random-access-file')
+const path = require('path')
+const util = require('util')
+const bulk = require('bulk-write-stream')
+const events = require('events')
+const sodium = require('sodium-universal')
+const alru = require('array-lru')
+const inherits = require('inherits')
+const hash = require('./lib/hash')
+const iterator = require('./lib/iterator')
+const differ = require('./lib/differ')
+const history = require('./lib/history')
+const keyHistory = require('./lib/key-history')
+const get = require('./lib/get')
+const put = require('./lib/put')
+const messages = require('./lib/messages')
+const trie = require('./lib/trie-encoding')
+const watch = require('./lib/watch')
+const normalizeKey = require('./lib/normalize')
+const derive = require('./lib/derive')
+const EthCrypto = require('eth-crypto');
+const validate = require('validate.js');
 const { promisify } = require('es6-promisify');
 const promisifyGet = promisify(get);
 
@@ -45,7 +45,7 @@ function AODB (storage, key, opts) {
 	opts = Object.assign({}, opts)
 	if (opts.firstNode) opts.reduce = reduceFirst
 
-	var checkout = opts.checkout
+	const checkout = opts.checkout
 
 	this.key = typeof key === 'string' ? Buffer.from(key, 'hex') : key
 	this.discoveryKey = this.key ? hypercore.discoveryKey(this.key) : null
@@ -92,10 +92,10 @@ inherits(AODB, events.EventEmitter)
 AODB.prototype.batch = function (batch, cb) {
 	if (!cb) cb = noop
 
-	var self = this
+	const self = this
 
 	this._lock(function (release) {
-		var clock = self._clock()
+		const clock = self._clock()
 
 		self._batching = []
 		self._batchingNodes = []
@@ -103,7 +103,7 @@ AODB.prototype.batch = function (batch, cb) {
 		self.heads(function (err, heads) {
 			if (err) return cb(err)
 
-			var i = 0
+			let i = 0
 
 			loop(null)
 
@@ -120,9 +120,9 @@ AODB.prototype.batch = function (batch, cb) {
 					return
 				}
 
-				var next = batch[i++]
+				const next = batch[i++]
 
-				var signer = EthCrypto.recoverPublicKey(next.writerSignature, self.createSignHash(next.key, next.value));
+				const signer = EthCrypto.recoverPublicKey(next.writerSignature, self.createSignHash(next.key, next.value));
 				if (signer !== next.writerAddress) {
 					throwError(cb, 'Error: signer does not match address and therefore does not have access to this record');
 				}
@@ -211,7 +211,7 @@ AODB.prototype.batch = function (batch, cb) {
 			}
 
 			function done (err) {
-				var nodes = self._batchingNodes
+				const nodes = self._batchingNodes
 				self._batching = null
 				self._batchingNodes = null
 				return release(cb, err, nodes)
@@ -228,16 +228,16 @@ AODB.prototype.put = function (key, val, writerSignature, writerAddress, opts, c
 		throwError(cb, 'Cannot put on a checkout')
 	}
 
-	var self = this
+	const self = this
 
 	this._lock(function (release) {
-		var clock = self._clock()
+		const clock = self._clock()
 		self._getHeads(false, async function (err, heads) {
 			if (err) throwError(cb, err)
 
 			// Perform writerSignature validation IFF key, writerSignature and writerAddress exist
 			if (key && writerSignature && writerAddress) {
-				var signer = EthCrypto.recoverPublicKey(writerSignature, self.createSignHash(key, val));
+				const signer = EthCrypto.recoverPublicKey(writerSignature, self.createSignHash(key, val));
 
 				// Validate the writerSignature
 				if (signer !== writerAddress) {
@@ -356,7 +356,7 @@ AODB.prototype.watch = function (key, cb) {
 AODB.prototype.get = function (key, opts, cb) {
 	if (typeof opts === 'function') return this.get(key, null, opts)
 
-	var self = this
+	const self = this
 
 	this._getHeads((opts && opts.update) !== false, function (err, heads) {
 		if (err) return cb(err)
@@ -365,14 +365,14 @@ AODB.prototype.get = function (key, opts, cb) {
 }
 
 AODB.prototype.version = function (cb) {
-	var self = this
+	const self = this
 
 	this.heads(function (err, heads) {
 		if (err) return cb(err)
 
-		var buffers = []
+		const buffers = []
 
-		for (var i = 0; i < heads.length; i++) {
+		for (let i = 0; i < heads.length; i++) {
 			buffers.push(self.feeds[heads[i].feed].key)
 			buffers.push(Buffer.from(varint.encode(heads[i].seq)))
 		}
@@ -423,13 +423,13 @@ AODB.prototype._getHeads = function (update, cb) {
 		return
 	}
 
-	var self = this
-	var len = this._writers.length
-	var missing = len
-	var error = null
-	var nodes = new Array(len)
+	const self = this
+	const len = this._writers.length
+	let missing = len
+	let error = null
+	const nodes = new Array(len)
 
-	for (var i = 0; i < len; i++) {
+	for (let i = 0; i < len; i++) {
 		this._writers[i].head(onhead)
 	}
 
@@ -453,14 +453,14 @@ AODB.prototype._waitForUpdate = function () {
 
 AODB.prototype._index = function (key) {
 	if (key.key) key = key.key
-	for (var i = 0; i < this.feeds.length; i++) {
+	for (let i = 0; i < this.feeds.length; i++) {
 		if (this.feeds[i].key.equals(key)) return i
 	}
 	return -1
 }
 
 AODB.prototype.authorized = function (key, cb) {
-	var self = this
+	const self = this
 
 	this._getHeads(false, function (err) {
 		if (err) return cb(err)
@@ -472,7 +472,7 @@ AODB.prototype.authorized = function (key, cb) {
 AODB.prototype.authorize = function (key, cb) {
 	if (!cb) cb = noop
 
-	var self = this
+	const self = this
 
 	this.heads(function (err) { // populates .feeds to be up to date
 		if (err) return cb(err)
@@ -486,15 +486,15 @@ AODB.prototype.authorize = function (key, cb) {
 AODB.prototype.replicate = function (opts) {
 	opts = Object.assign({}, opts)
 
-	var self = this
-	var expectedFeeds = Math.max(1, this._authorized.length)
-	var factor = this.contentFeeds ? 2 : 1
+	const self = this
+	let expectedFeeds = Math.max(1, this._authorized.length)
+	const factor = this.contentFeeds ? 2 : 1
 
 	opts.expectedFeeds = expectedFeeds * factor
 	if (!opts.id) opts.id = this.id
 
 	if (!opts.stream) opts.stream = protocol(opts)
-	var stream = opts.stream
+	const stream = opts.stream
 
 	if (!opts.live) stream.on('prefinalize', prefinalize)
 
@@ -509,7 +509,7 @@ AODB.prototype.replicate = function (opts) {
 		// bootstrap content feeds
 		if (self.contentFeeds && !self.contentFeeds[0]) self._writers[0].get(1, noop)
 
-		var i = 0
+		let i = 0
 
 		self._replicating.push(replicate)
 		stream.on('close', onclose)
@@ -523,17 +523,17 @@ AODB.prototype.replicate = function (opts) {
 
 		function replicate () {
 			for (; i < self._authorized.length; i++) {
-				var j = self._authorized[i]
+				const j = self._authorized[i]
 				self.feeds[j].replicate(opts)
 				if (!self.contentFeeds) continue
-				var w = self._writers[j]
+				const w = self._writers[j]
 				if (w._contentFeed) w._contentFeed.replicate(opts)
 				else w.once('content-feed', oncontent)
 			}
 		}
 
 		function onclose () {
-			var i = self._replicating.indexOf(replicate)
+			let i = self._replicating.indexOf(replicate)
 			if (i > -1) remove(self._replicating, i)
 			for (i = 0; i < self._writers.length; i++) {
 				self._writers[i].removeListener('content-feed', oncontent)
@@ -552,10 +552,10 @@ AODB.prototype.replicate = function (opts) {
 }
 
 AODB.prototype._clock = function () {
-	var clock = new Array(this._writers.length)
+	const clock = new Array(this._writers.length)
 
-	for (var i = 0; i < clock.length; i++) {
-		var w = this._writers[i]
+	for (let i = 0; i < clock.length; i++) {
+		const w = this._writers[i]
 		clock[i] = w === this._localWriter ? w._clock : w.length()
 	}
 
@@ -571,13 +571,13 @@ AODB.prototype._getPointer = function (feed, index, isPut, cb) {
 }
 
 AODB.prototype._getAllPointers = function (list, isPut, cb) {
-	var error = null
-	var result = new Array(list.length)
-	var missing = result.length
+	let error = null
+	const result = new Array(list.length)
+	let missing = result.length
 
 	if (!missing) return process.nextTick(cb, null, result)
 
-	for (var i = 0; i < result.length; i++) {
+	for (let i = 0; i < result.length; i++) {
 		this._getPointer(list[i].feed, list[i].seq, isPut, done)
 	}
 
@@ -589,7 +589,7 @@ AODB.prototype._getAllPointers = function (list, isPut, cb) {
 }
 
 AODB.prototype._writer = function (dir, key, opts) {
-	var writer = key && this._byKey.get(key.toString('hex'))
+	let writer = key && this._byKey.get(key.toString('hex'))
 	if (writer) return writer
 
 	opts = Object.assign({}, opts, {
@@ -597,7 +597,7 @@ AODB.prototype._writer = function (dir, key, opts) {
 		onwrite: this._onwrite ? onwrite : null
 	})
 
-	var self = this
+	const self = this
 	var feed = hypercore(storage, key, opts)
 
 	writer = new Writer(self, feed)
@@ -639,7 +639,7 @@ AODB.prototype._writer = function (dir, key, opts) {
 	}
 
 	function onappend () {
-		for (var i = 0; i < self._watching.length; i++) self._watching[i]._kick()
+		for (let i = 0; i < self._watching.length; i++) self._watching[i]._kick()
 		self.emit('append', feed, writer._id)
 	}
 
@@ -657,8 +657,8 @@ AODB.prototype._getWriter = function (key) {
 }
 
 AODB.prototype._addWriter = function (key, cb) {
-	var self = this
-	var writer = this._writer('peers/' + hypercore.discoveryKey(key).toString('hex'), key)
+	const self = this
+	const writer = this._writer('peers/' + hypercore.discoveryKey(key).toString('hex'), key)
 
 	writer._feed.ready(function (err) {
 		if (err) return cb(err)
@@ -674,7 +674,7 @@ AODB.prototype._pushWriter = function (writer) {
 
 	if (!this.opened) return
 
-	for (var i = 0; i < this._replicating.length; i++) {
+	for (let i = 0; i < this._replicating.length; i++) {
 		this._replicating[i]()
 	}
 }
@@ -683,8 +683,8 @@ AODB.prototype.list = function (prefix, opts, cb) {
 	if (typeof prefix === 'function') return this.list('', null, prefix)
 	if (typeof opts === 'function') return this.list(prefix, null, opts)
 
-	var ite = this.iterator(prefix, opts)
-	var list = []
+	const ite = this.iterator(prefix, opts)
+	const list = []
 
 	ite.next(loop)
 
@@ -732,15 +732,15 @@ AODB.prototype.createReadStream = function (prefix, opts) {
 }
 
 AODB.prototype.createWriteStream = function (cb) {
-	var self = this
+	const self = this
 	return bulk.obj(write)
 
 	function write (batch, cb) {
-		var flattened = []
-		for (var i = 0; i < batch.length; i++) {
-			var content = batch[i]
+		const flattened = []
+		for (let i = 0; i < batch.length; i++) {
+			const content = batch[i]
 			if (Array.isArray(content)) {
-				for (var j = 0; j < content.length; j++) {
+				for (let j = 0; j < content.length; j++) {
 					flattened.push(content[j])
 				}
 			} else {
@@ -752,7 +752,7 @@ AODB.prototype.createWriteStream = function (cb) {
 }
 
 AODB.prototype._ready = function (cb) {
-	var self = this
+	const self = this
 
 	if (this._checkout) {
 		if (this._heads) oncheckout(null, this._heads)
@@ -808,7 +808,7 @@ AODB.prototype._ready = function (cb) {
 	}
 
 	function feed (dir, key, feedOpts) {
-		var writer = self._writer(dir, key, feedOpts)
+		const writer = self._writer(dir, key, feedOpts)
 		self._pushWriter(writer)
 		return writer._feed
 	}
@@ -816,10 +816,10 @@ AODB.prototype._ready = function (cb) {
 	function onversion (err) {
 		if (err) return done(err)
 
-		var offset = 0
-		var missing = 0
-		var nodes = []
-		var error = null
+		let offset = 0
+		let missing = 0
+		const nodes = []
+		let error = null
 
 		if (typeof self._version === 'number') {
 			missing = 1
@@ -828,10 +828,10 @@ AODB.prototype._ready = function (cb) {
 		}
 
 		while (offset < self._version.length) {
-			var key = self._version.slice(offset, offset + 32)
-			var seq = varint.decode(self._version, offset + 32)
+			const key = self._version.slice(offset, offset + 32)
+			const seq = varint.decode(self._version, offset + 32)
 			offset += 32 + varint.decode.bytes
-			var writer = self._checkout._byKey.get(key.toString('hex'))
+			const writer = self._checkout._byKey.get(key.toString('hex'))
 			if (!writer) {
 				error = new Error('Invalid version')
 				continue
@@ -867,7 +867,7 @@ AODB.prototype._ready = function (cb) {
 
 AODB.prototype.createSignHash = function (key, val) {
 	if (val === null) val = '';
-	var signData = [
+	const signData = [
 		{	// prefix
 			type: 'string',
 			value: 'AODB Signature'
@@ -888,12 +888,12 @@ AODB.prototype.createSignHash = function (key, val) {
  * Validation functions
  */
 AODB.prototype.validateMaxLength140 = function (value) {
-	var constraints = {
+	const constraints = {
 		value: {
 			length: { maximum: 140}
 		}
 	};
-	var error = validate({value}, constraints);
+	const error = validate({value}, constraints);
 	if (error && error.value) {
 		return { error: true, errorMessage: error.value[0] };
 	}
@@ -938,8 +938,8 @@ Writer.prototype.authorize = function () {
 Writer.prototype.ensureHeader = function (cb) {
 	if (this._feed.length) return cb(null)
 
-	var header = {
-		protocol: 'hyperdb'
+	const header = {
+		protocol: 'aodb'
 	}
 
 	this._feed.append(messages.Header.encode(header), cb)
@@ -948,7 +948,7 @@ Writer.prototype.ensureHeader = function (cb) {
 Writer.prototype.append = function (entry, cb) {
 	if (!this._clock) this._clock = this._feed.length
 
-	var enc = messages.Entry
+	let enc = messages.Entry
 	this._entry = this._clock++
 
 	entry.clock[this._id] = this._clock
@@ -956,7 +956,7 @@ Writer.prototype.append = function (entry, cb) {
 	entry.feed = this._id
 	entry[util.inspect.custom] = inspect
 
-	var mapped = {
+	const mapped = {
 		key: entry.key,
 		pointerKey: entry.pointerKey,
 		schemaKey: entry.schemaKey,
@@ -1001,13 +1001,13 @@ Writer.prototype.append = function (entry, cb) {
 }
 
 Writer.prototype._needsInflate = function () {
-	var msg = this._feedsMessage
+	const msg = this._feedsMessage
 	return !msg || msg.feeds.length !== this._db.feeds.length
 }
 
 Writer.prototype._maybeUpdateFeeds = function () {
 	if (!this._feedsMessage) return
-	var writers = this._feedsMessage.feeds || []
+	const writers = this._feedsMessage.feeds || []
 	if (
 		this._decodeMap.length !== writers.length ||
 		this._encodeMap.length !== this._db.feeds.length
@@ -1017,8 +1017,9 @@ Writer.prototype._maybeUpdateFeeds = function () {
 }
 
 Writer.prototype._decode = function (seq, buf, cb) {
+	let val;
 	try {
-		var val = messages.Entry.decode(buf)
+		val = messages.Entry.decode(buf)
 	} catch (e) {
 		return cb(e)
 	}
@@ -1048,8 +1049,8 @@ Writer.prototype._decode = function (seq, buf, cb) {
 }
 
 Writer.prototype.get = function (seq, cb) {
-	var self = this
-	var cached = this._cache.get(seq)
+	const self = this
+	const cached = this._cache.get(seq)
 	if (cached) return process.nextTick(cb, null, cached, this._id)
 
 	this._getFeed(seq, function (err, val) {
@@ -1060,21 +1061,21 @@ Writer.prototype.get = function (seq, cb) {
 
 Writer.prototype._getFeed = function (seq, cb) {
 	if (this._writes && this._writes.size) {
-		var buf = this._writes.get(seq)
+		const buf = this._writes.get(seq)
 		if (buf) return process.nextTick(cb, null, buf)
 	}
 	this._feed.get(seq, cb)
 }
 
 Writer.prototype.head = function (cb) {
-	var len = this.length()
+	let len = this.length()
 	if (len < 2) return process.nextTick(cb, null, null, this._id)
 	this.get(len - 1, cb)
 }
 
 Writer.prototype._mapList = function (list, map, def) {
-	var mapped = []
-	var i
+	const mapped = []
+	let i
 	for (i = 0; i < map.length; i++) mapped[map[i]] = i < list.length ? list[i] : def
 	for (; i < list.length; i++) mapped[i] = list[i]
 	for (i = 0; i < mapped.length; i++) {
@@ -1084,7 +1085,7 @@ Writer.prototype._mapList = function (list, map, def) {
 }
 
 Writer.prototype._loadFeeds = function (head, buf, cb) {
-	var self = this
+	const self = this
 
 	if (head.feeds) done(head)
 	else if (head.inflate === head.seq) onfeeds(null, buf)
@@ -1092,8 +1093,9 @@ Writer.prototype._loadFeeds = function (head, buf, cb) {
 
 	function onfeeds (err, buf) {
 		if (err) return cb(err)
+		let msg;
 		try {
-			var msg = messages.InflatedEntry.decode(buf)
+			msg = messages.InflatedEntry.decode(buf)
 		} catch (e) {
 			return cb(e)
 		}
@@ -1106,13 +1108,13 @@ Writer.prototype._loadFeeds = function (head, buf, cb) {
 }
 
 Writer.prototype._addWriters = function (head, inflated, cb) {
-	var self = this
-	var id = this._id
-	var writers = inflated.feeds || []
-	var missing = writers.length + 1
-	var error = null
+	const self = this
+	const id = this._id
+	const writers = inflated.feeds || []
+	let missing = writers.length + 1
+	let error = null
 
-	for (var i = 0; i < writers.length; i++) {
+	for (let i = 0; i < writers.length; i++) {
 		this._db._addWriter(writers[i].key, done)
 	}
 
@@ -1122,7 +1124,7 @@ Writer.prototype._addWriters = function (head, inflated, cb) {
 		if (err) error = err
 		if (--missing) return
 		if (error) return cb(error)
-		var seq = head.inflate
+		const seq = head.inflate
 		if (seq > self._feedsLoaded) {
 			self._feedsLoaded = self._feeds = seq
 			self._feedsMessage = inflated
@@ -1142,11 +1144,11 @@ Writer.prototype._addWriters = function (head, inflated, cb) {
 Writer.prototype._ensureContentFeed = function (key) {
 	if (this._contentFeed) return
 
-	var self = this
-	var secretKey = null
+	const self = this
+	let secretKey = null
 
 	if (!key) {
-		var pair = derive(this._db.local.secretKey)
+		const pair = derive(this._db.local.secretKey)
 		secretKey = pair.secretKey
 		key = pair.publicKey
 	}
@@ -1170,23 +1172,23 @@ Writer.prototype._ensureContentFeed = function (key) {
 }
 
 Writer.prototype._updateFeeds = function () {
-	var i
-	var updateReplicates = false
+	let i
+	let updateReplicates = false
 
 	if (this._feedsMessage.contentFeed && this._db.contentFeeds && !this._contentFeed) {
 		this._ensureContentFeed(this._feedsMessage.contentFeed)
 		updateReplicates = true
 	}
 
-	var writers = this._feedsMessage.feeds || []
-	var map = new Map()
+	const writers = this._feedsMessage.feeds || []
+	const map = new Map()
 
 	for (i = 0; i < this._db.feeds.length; i++) {
 		map.set(this._db.feeds[i].key.toString('hex'), i)
 	}
 
 	for (i = 0; i < writers.length; i++) {
-		var id = map.get(writers[i].key.toString('hex'))
+		const id = map.get(writers[i].key.toString('hex'))
 		this._decodeMap[i] = id
 		this._encodeMap[id] = i
 		if (this._authorized) {
@@ -1209,11 +1211,11 @@ Writer.prototype.authorizes = function (key, visited) {
 	if (!this._feedsMessage || visited[this._id]) return false
 	visited[this._id] = true
 
-	var feeds = this._feedsMessage.feeds || []
-	for (var i = 0; i < feeds.length; i++) {
-		var authedKey = feeds[i].key
+	const feeds = this._feedsMessage.feeds || []
+	for (let i = 0; i < feeds.length; i++) {
+		const authedKey = feeds[i].key
 		if (authedKey.equals(key)) return true
-		var authedWriter = this._db._getWriter(authedKey)
+		const authedWriter = this._db._getWriter(authedKey)
 		if (authedWriter.authorizes(key, visited)) return true
 	}
 
@@ -1226,8 +1228,8 @@ Writer.prototype.length = function () {
 }
 
 function filterHeads (list) {
-	var heads = []
-	for (var i = 0; i < list.length; i++) {
+	const heads = []
+	for (let i = 0; i < list.length; i++) {
 		if (isHead(list[i], list)) heads.push(list[i])
 	}
 	return heads
@@ -1236,10 +1238,10 @@ function filterHeads (list) {
 function isHead (node, list) {
 	if (!node) return false
 
-	var clock = node.seq + 1
+	const clock = node.seq + 1
 
-	for (var i = 0; i < list.length; i++) {
-		var other = list[i]
+	for (let i = 0; i < list.length; i++) {
+		const other = list[i]
 		if (other === node || !other) continue
 		if ((other.clock[node.feed] || 0) >= clock) return false
 	}
@@ -1260,8 +1262,8 @@ function readyAndHeads (self, update, cb) {
 }
 
 function indexOf (list, ptr) {
-	for (var i = 0; i < list.length; i++) {
-		var p = list[i]
+	for (let i = 0; i < list.length; i++) {
+		const p = list[i]
 		if (ptr.feed === p.feed && ptr.seq === p.seq) return i
 	}
 	return -1
