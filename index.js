@@ -103,7 +103,7 @@ class AODB {
 				loop(null);
 
 				async function loop(err, node) {
-					if (err) throwError(cb, err);
+					if (err) return throwError(cb, err);
 
 					if (node) {
 						node.path = hash(node.key, true);
@@ -119,7 +119,7 @@ class AODB {
 
 					const signer = EthCrypto.recoverPublicKey(next.writerSignature, self.createSignHash(next.key, next.value));
 					if (signer !== next.writerAddress) {
-						throwError(cb, "Error: signer does not match address and therefore does not have access to this record");
+						return throwError(cb, "Error: signer does not match address and therefore does not have access to this record");
 					}
 
 					if (next.type === "add-schema") {
@@ -127,7 +127,7 @@ class AODB {
 						try {
 							const validation = await validateSchemaVal(self, heads, next.key, next.value);
 							if (validation.error) {
-								throwError(cb, "Error: " + validation.errorMessage);
+								return throwError(cb, "Error: " + validation.errorMessage);
 							}
 							put(
 								self,
@@ -141,7 +141,7 @@ class AODB {
 								loop
 							);
 						} catch (e) {
-							throwError(cb, e);
+							return throwError(cb, e);
 						}
 					} else if (next.type === "del") {
 						put(
@@ -158,18 +158,19 @@ class AODB {
 					} else if (next.type === "put") {
 						// If not writing a schema, then a schemaKey for this key needs to be provided
 						if (!next.schemaKey) {
-							throwError(cb, "Error: missing the schemaKey option for this entry");
+							return throwError(cb, "Error: missing the schemaKey option for this entry");
 						}
 
 						// Validate pointerKey if exist
 						let hasPointer = false;
 						if (next.pointerKey) {
 							if (!next.pointerSchemaKey) {
-								throwError(cb, "Error: missing the pointerSchemaKey option for this entry");
+								return throwError(cb, "Error: missing the pointerSchemaKey option for this entry");
 							}
 							try {
 								let pointerSchemaKeyNode = await promisifyGet(self, heads, normalizeKey(next.pointerSchemaKey));
-								if (!pointerSchemaKeyNode) throwError(cb, "Error: unable to find this entry for the pointerSchemaKey");
+								if (!pointerSchemaKeyNode)
+									return throwError(cb, "Error: unable to find this entry for the pointerSchemaKey");
 								if (pointerSchemaKeyNode.length) pointerSchemaKeyNode = pointerSchemaKeyNode[0];
 
 								// Validate the pointerKey
@@ -179,35 +180,35 @@ class AODB {
 									next.writerAddress
 								);
 								if (validation.error) {
-									throwError(cb, "Error: " + validation.errorMessage);
+									return throwError(cb, "Error: " + validation.errorMessage);
 								}
 								hasPointer = true;
 							} catch (e) {
-								throwError(cb, e);
+								return throwError(cb, e);
 							}
 						}
 
 						// Get the schema
 						try {
 							let schemaKeyNode = await promisifyGet(self, heads, normalizeKey(next.schemaKey));
-							if (!schemaKeyNode) throwError(cb, "Error: unable to find this entry for the schemaKey");
+							if (!schemaKeyNode) return throwError(cb, "Error: unable to find this entry for the schemaKey");
 							if (schemaKeyNode.length) schemaKeyNode = schemaKeyNode[0];
 
 							// Validate the key
 							let validation = validateKeySchema(normalizeKey(next.key), schemaKeyNode.value.keySchema, next.writerAddress);
 							if (validation.error) {
-								throwError(cb, "Error: " + validation.errorMessage);
+								return throwError(cb, "Error: " + validation.errorMessage);
 							}
 
 							// Validate the val if there is valueValidationKey
 							if (schemaKeyNode.value.valueValidationKey) {
 								validation = await validateEntryValue(self, heads, val, schemaKeyNode.value.valueValidationKey);
 								if (validation.error) {
-									throwError(cb, "Error: " + validation.errorMessage);
+									return throwError(cb, "Error: " + validation.errorMessage);
 								}
 							}
 						} catch (e) {
-							throwError(cb, e);
+							return throwError(cb, e);
 						}
 
 						// If there is a valid pointerKey
@@ -255,7 +256,7 @@ class AODB {
 							);
 						}
 					} else {
-						throwError(cb, "Error: missing the type option for this entry");
+						return throwError(cb, "Error: missing the type option for this entry");
 					}
 				}
 
@@ -274,7 +275,7 @@ class AODB {
 		if (!cb) cb = noop;
 
 		if (this._checkout) {
-			throwError(cb, "Cannot put on a checkout");
+			return throwError(cb, "Cannot put on a checkout");
 		}
 
 		const self = this;
@@ -282,7 +283,7 @@ class AODB {
 		this._lock((release) => {
 			const clock = self._clock();
 			self._getHeads(false, async (err, heads) => {
-				if (err) throwError(cb, err);
+				if (err) return throwError(cb, err);
 
 				// Perform writerSignature validation IFF key, writerSignature and writerAddress exist
 				if (key && writerSignature && writerAddress) {
@@ -290,7 +291,7 @@ class AODB {
 
 					// Validate the writerSignature
 					if (signer !== writerAddress) {
-						throwError(cb, "Error: signer does not match address and therefore does not have access to this record");
+						return throwError(cb, "Error: signer does not match address and therefore does not have access to this record");
 					}
 
 					// If writing a schema
@@ -302,11 +303,11 @@ class AODB {
 						try {
 							const validation = await validateSchemaVal(self, heads, key, val);
 							if (validation.error) {
-								throwError(cb, "Error: " + validation.errorMessage);
+								return throwError(cb, "Error: " + validation.errorMessage);
 							}
 							put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock);
 						} catch (e) {
-							throwError(cb, e);
+							return throwError(cb, e);
 						}
 					} else if (opts && opts.delete === true) {
 						// If deleting an entry
@@ -314,18 +315,19 @@ class AODB {
 					} else {
 						// If not writing a schema, then a schemaKey for this key needs to be provided
 						if (opts && !opts.schemaKey) {
-							throwError(cb, "Error: missing the schemaKey option for this entry");
+							return throwError(cb, "Error: missing the schemaKey option for this entry");
 						}
 
 						// Validate pointerKey if exist
 						let hasPointer = false;
 						if (opts && opts.pointerKey) {
 							if (!opts.pointerSchemaKey) {
-								throwError(cb, "Error: missing the pointerSchemaKey option for this entry");
+								return throwError(cb, "Error: missing the pointerSchemaKey option for this entry");
 							}
 							try {
 								let pointerSchemaKeyNode = await promisifyGet(self, heads, normalizeKey(opts.pointerSchemaKey));
-								if (!pointerSchemaKeyNode) throwError(cb, "Error: unable to find this entry for the pointerSchemaKey");
+								if (!pointerSchemaKeyNode)
+									return throwError(cb, "Error: unable to find this entry for the pointerSchemaKey");
 								if (pointerSchemaKeyNode.length) pointerSchemaKeyNode = pointerSchemaKeyNode[0];
 
 								// Validate the pointerKey
@@ -335,35 +337,35 @@ class AODB {
 									writerAddress
 								);
 								if (validation.error) {
-									throwError(cb, "Error: " + validation.errorMessage);
+									return throwError(cb, "Error: " + validation.errorMessage);
 								}
 								hasPointer = true;
 							} catch (e) {
-								throwError(cb, e);
+								return throwError(cb, e);
 							}
 						}
 
 						// Get the schema
 						try {
 							let schemaKeyNode = await promisifyGet(self, heads, normalizeKey(opts.schemaKey));
-							if (!schemaKeyNode) throwError(cb, "Error: unable to find this entry for the schemaKey");
+							if (!schemaKeyNode) return throwError(cb, "Error: unable to find this entry for the schemaKey");
 							if (schemaKeyNode.length) schemaKeyNode = schemaKeyNode[0];
 
 							// Validate the key
 							let validation = validateKeySchema(normalizeKey(key), schemaKeyNode.value.keySchema, writerAddress);
 							if (validation.error) {
-								throwError(cb, "Error: " + validation.errorMessage);
+								return throwError(cb, "Error: " + validation.errorMessage);
 							}
 
 							// Validate the val if there is valueValidationKey
 							if (schemaKeyNode.value.valueValidationKey) {
 								validation = await validateEntryValue(self, heads, val, schemaKeyNode.value.valueValidationKey);
 								if (validation.error) {
-									throwError(cb, "Error: " + validation.errorMessage);
+									return throwError(cb, "Error: " + validation.errorMessage);
 								}
 							}
 						} catch (e) {
-							throwError(cb, e);
+							return throwError(cb, e);
 						}
 
 						// If there is a valid pointerKey
@@ -380,7 +382,7 @@ class AODB {
 								{ schemaKey: opts.pointerSchemaKey, pointer: true },
 								(err, node) => {
 									self._getHeads(false, async (err, heads) => {
-										if (err) throwError(cb, err);
+										if (err) return throwError(cb, err);
 										// Insert the key
 										put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock);
 									});
@@ -390,10 +392,14 @@ class AODB {
 							put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock);
 						}
 					}
-				} else {
+				} else if (!key && !writerSignature && !writerAddress) {
 					// We don't need writerSignature validation when authorizing empty key
 					// i.e self.put('', null, '', '', cb) inside AODB.prototype.authorize
 					put(self, clock, heads, "", null, "", "", opts, unlock);
+				} else {
+					if (!key) return throwError(cb, "Error: missing key");
+					if (!writerSignature) return throwError(cb, "Error: missing writerSignature");
+					if (!writerAddress) return throwError(cb, "Error: missing writerAddress");
 				}
 			});
 
@@ -1391,7 +1397,8 @@ const inspect = () => {
  *		}
  */
 const validateSchemaVal = async (self, heads, key, val) => {
-	if (!key || typeof val !== "object") return { error: true, errorMessage: "Missing key/val value" };
+	if (!key) return { error: true, errorMessage: "Missing key value" };
+	if (typeof val !== "object") return { error: true, errorMessage: "Invalid schemaValue object" };
 	if (!val.hasOwnProperty("keySchema") || !val.hasOwnProperty("valueValidationKey") || !val.hasOwnProperty("keyValidation"))
 		return { error: true, errorMessage: "val is missing keySchema / valueValidationKey / keyValidation property" };
 	if (normalizeKey(key) !== "schema/" + normalizeKey(val.keySchema))
@@ -1448,5 +1455,5 @@ const validateEntryValue = async (self, heads, value, valueValidationKey) => {
  * @dev helper function to exit when there is an error
  */
 const throwError = (cb, errorMessage) => {
-	return process.nextTick(cb, new Error(errorMessage));
+	return cb(new Error(errorMessage));
 };
