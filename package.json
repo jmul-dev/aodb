@@ -1,85 +1,53 @@
 {
-  "_from": "hyperdb",
-  "_id": "hyperdb@3.5.0",
-  "_inBundle": false,
-  "_integrity": "sha512-NfubW5251YCMcU2iTgobcAHS53qRzwAS+jDOANu0B9W72xtlOFKOlICkvqsMmMiF0SUAVy/Yfud8DUuykeoIJQ==",
-  "_location": "/hyperdb",
-  "_phantomChildren": {},
-  "_requested": {
-    "type": "tag",
-    "registry": true,
-    "raw": "hyperdb",
-    "name": "hyperdb",
-    "escapedName": "hyperdb",
-    "rawSpec": "",
-    "saveSpec": null,
-    "fetchSpec": "latest"
-  },
-  "_requiredBy": [
-    "#USER",
-    "/"
-  ],
-  "_resolved": "https://registry.npmjs.org/hyperdb/-/hyperdb-3.5.0.tgz",
-  "_shasum": "0bfd6c97de44f20918c692db537ebee200b890db",
-  "_spec": "hyperdb",
-  "_where": "/usr/local/hyperdb_mod",
-  "author": {
-    "name": "Mathias Buus",
-    "url": "@mafintosh"
-  },
-  "bugs": {
-    "url": "https://github.com/mafintosh/hyperdb/issues"
-  },
-  "bundleDependencies": false,
-  "dependencies": {
-    "array-lru": "^1.1.1",
-    "bulk-write-stream": "^1.1.3",
-    "codecs": "^1.2.1",
-    "compare": "^2.0.0",
-    "es6-promisify": "^6.0.1",
-    "eth-crypto": "^1.2.4",
-    "hypercore": "^6.13.0",
-    "hypercore-protocol": "^6.6.4",
-    "inherits": "^2.0.3",
-    "mutexify": "^1.2.0",
-    "nanoiterator": "^1.1.0",
-    "protocol-buffers-encodings": "^1.1.0",
-    "random-access-file": "^2.0.1",
-    "sodium-universal": "^2.0.0",
-    "thunky": "^1.0.2",
-    "unordered-array-remove": "^1.0.2",
-    "unordered-set": "^2.0.0",
-    "validate.js": "^0.12.0",
-    "varint": "^5.0.0"
-  },
-  "deprecated": false,
-  "description": "Distributed scalable database",
-  "devDependencies": {
-    "prettier": "^1.14.3",
-    "protocol-buffers": "^4.0.4",
-    "random-access-latency": "^1.0.0",
-    "random-access-memory": "^3.0.0",
-    "seed-random": "^2.2.0",
-    "standard": "^11.0.0",
-    "stream-collector": "^1.0.1",
-    "tape": "^4.9.0"
-  },
-  "homepage": "https://github.com/mafintosh/hyperdb#readme",
-  "license": "MIT",
-  "main": "index.js",
-  "name": "hyperdb",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/mafintosh/hyperdb.git"
-  },
-  "scripts": {
-    "protobuf": "protocol-buffers schema.proto -o lib/messages.js",
-    "test": "standard && tape test/*.js"
-  },
-  "standard": {
-    "ignore": [
-      "test/helpers/fuzzing.js"
-    ]
-  },
-  "version": "3.5.0"
+	"name": "aodb",
+	"version": "0.0.1",
+	"description": "Distributed scalable database with signature authentication and node validation on key writes",
+	"main": "index.js",
+	"dependencies": {
+		"array-lru": "^1.1.1",
+		"bulk-write-stream": "^1.1.3",
+		"codecs": "^1.2.1",
+		"compare": "^2.0.0",
+		"es6-promisify": "^6.0.1",
+		"eth-crypto": "^1.2.4",
+		"hypercore": "^6.13.0",
+		"hypercore-protocol": "^6.6.4",
+		"inherits": "^2.0.3",
+		"mutexify": "^1.2.0",
+		"nanoiterator": "^1.1.0",
+		"protocol-buffers-encodings": "^1.1.0",
+		"random-access-file": "^2.0.1",
+		"sodium-universal": "^2.0.0",
+		"thunky": "^1.0.2",
+		"unordered-array-remove": "^1.0.2",
+		"unordered-set": "^2.0.0",
+		"validate.js": "^0.12.0",
+		"varint": "^5.0.0"
+	},
+	"devDependencies": {
+		"prettier": "^1.14.3",
+		"protocol-buffers": "^4.0.4",
+		"random-access-latency": "^1.0.0",
+		"random-access-memory": "^3.0.0",
+		"seed-random": "^2.2.0",
+		"standard": "^11.0.0",
+		"stream-collector": "^1.0.1",
+		"tape": "^4.9.0"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://gitlab.paramation.com/AO-core/aodb.git"
+	},
+	"scripts": {
+		"protobuf": "protocol-buffers schema.proto -o lib/messages.js",
+		"test": "standard && tape test/*.js"
+	},
+	"author": {
+		"name": "Johan Mulyono",
+		"url": "@johan"
+	},
+	"license": "MIT",
+	"bugs": {
+		"url": "https://gitlab.paramation.com/AO-core/aodb/issues"
+	}
 }
