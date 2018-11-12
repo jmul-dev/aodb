@@ -7,6 +7,197 @@ const run = require("./helpers/run");
 const EthCrypto = require("eth-crypto");
 const { privateKey, publicKey: writerAddress } = EthCrypto.createIdentity();
 
+tape("put without schema", (t) => {
+	const db = create.one();
+	const key = "hello";
+	const value = "world";
+
+	db.put(key, value, EthCrypto.sign(privateKey, db.createSignHash(key, value)), writerAddress, {}, (err, node) => {
+		console.log("no schemaKey", err);
+		t.ok(err, "expected error");
+		t.equal(err.message, "Error: missing the schemaKey option for this entry", "error message");
+		t.end();
+	});
+});
+
+tape("put without signature", (t) => {
+	const db = create.one();
+	const schemaKey = "schema/hello";
+	const schemaValue = {
+		keySchema: "hello",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+	let writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue));
+	db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
+		t.error(err);
+		const key = "hello";
+		const value = "world";
+
+		db.put(key, value, "", writerAddress, { schemaKey }, (err, node) => {
+			console.log("no writerSignature", err);
+			t.ok(err, "expected error");
+			t.equal(err.message, "Error: missing writerSignature", "error message");
+			t.end();
+		});
+	});
+});
+
+tape("put without writerAddress", (t) => {
+	const db = create.one();
+	const schemaKey = "schema/hello";
+	const schemaValue = {
+		keySchema: "hello",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+	let writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue));
+	db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
+		t.error(err);
+		const key = "hello";
+		const value = "world";
+
+		db.put(key, value, EthCrypto.sign(privateKey, db.createSignHash(key, value)), "", { schemaKey }, (err, node) => {
+			console.log("no writerAddress", err);
+			t.ok(err, "expected error");
+			t.equal(err.message, "Error: missing writerAddress", "error message");
+			t.end();
+		});
+	});
+});
+
+tape("put with non-existing schemaKey", (t) => {
+	const db = create.one();
+	const schemaKey = "schema/hello";
+	const schemaValue = {
+		keySchema: "hello",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+	let writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue));
+	db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
+		t.error(err);
+		const key = "hello";
+		const value = "world";
+
+		db.put(
+			key,
+			value,
+			EthCrypto.sign(privateKey, db.createSignHash(key, value)),
+			writerAddress,
+			{ schemaKey: "schema/hel" },
+			(err, node) => {
+				console.log("non-existing schemaKey", err);
+				t.ok(err, "expected error");
+				t.equal(err.message, "Error: unable to find this entry for the schemaKey", "error message");
+				t.end();
+			}
+		);
+	});
+});
+
+tape("put with incorrect schemaKey", (t) => {
+	const db = create.one();
+	const schemaKey = "schema/hello";
+	const schemaValue = {
+		keySchema: "hello",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+	let writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue));
+	db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
+		t.error(err);
+		const key = "hello2";
+		const value = "world";
+
+		db.put(key, value, EthCrypto.sign(privateKey, db.createSignHash(key, value)), writerAddress, { schemaKey }, (err, node) => {
+			console.log("incorrect schemaKey", err);
+			t.ok(err, "expected error");
+			t.equal(err.message, "Error: key's space not match. key => " + key + ". schema => " + schemaValue.keySchema, "error message");
+			t.end();
+		});
+	});
+});
+
+tape("addSchema with invalid keySchema", (t) => {
+	const db = create.one();
+	const schemaKey = "schema/hello";
+	const schemaValue = {
+		keySchema: "hello2",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+	let writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue));
+	db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
+		console.log("incorrect keySchema", err);
+		t.ok(err, "expected error");
+		t.equal(err.message, "Error: key does not have the correct schema structure", "error message");
+		t.end();
+	});
+});
+
+tape("addSchema with invalid schemaValue", (t) => {
+	const db = create.one();
+	const schemaKey = "schema/hello";
+	const schemaValue = "blah";
+	let writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue));
+	db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
+		console.log("invalid schemaValue", err);
+		t.ok(err, "expected error");
+		t.equal(err.message, "Error: Invalid schemaValue object", "error message");
+		t.end();
+	});
+});
+
+tape("addSchema with schemaValue missing some properties", (t) => {
+	const db = create.one();
+	const schemaKey = "schema/hello";
+	const schemaValue = {
+		keySchema: "hello",
+		keyValidation: ""
+	};
+
+	let writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue));
+	db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
+		console.log("schemaValue missing props", err);
+		t.ok(err, "expected error");
+		t.equal(err.message, "Error: val is missing keySchema / valueValidationKey / keyValidation property", "error message");
+		t.end();
+	});
+});
+
+tape("basic addSchema", (t) => {
+	const db = create.one();
+	const schemaKey = "schema/hello";
+	const schemaValue = {
+		keySchema: "hello",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+	let writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue));
+	db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
+		t.error(err);
+
+		const schemaValue2 = {
+			keySchema: "hello",
+			valueValidationKey: "",
+			keyValidation: "somekeyvalidation"
+		};
+		writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue2));
+		db.addSchema(schemaKey, schemaValue2, writerSignature, writerAddress, (err) => {
+			t.error(err);
+			db.get(schemaKey, (err, node) => {
+				t.error(err, "no error");
+				t.same(node.key, schemaKey, "same key");
+				t.same(node.value, schemaValue, "same value");
+				t.same(node.isSchema, true);
+				t.same(node.noUpdate, true);
+				t.end();
+			});
+		});
+	});
+});
+
 tape("basic put/get", (t) => {
 	const db = create.one();
 	const schemaKey = "schema/hello";
@@ -1235,4 +1426,69 @@ tape("opts is not mutated", (t) => {
 	create.one(opts);
 	t.deepEqual(opts, { firstNode: true });
 	t.end();
+});
+
+tape("put with pointer", (t) => {
+	const db = create.one();
+
+	const schemaKey = "schema/%writerAddress%/profilePicture";
+	const schemaValue = {
+		keySchema: "%writerAddress%/profilePicture",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+	const schemaKey2 = "schema/settings/profilePicture/%writerAddress%";
+	const schemaValue2 = {
+		keySchema: "settings/profilePicture/%writerAddress%",
+		valueValidationKey: "",
+		keyValidation: ""
+	};
+
+	const batchList = [
+		{
+			type: "add-schema",
+			key: schemaKey,
+			value: schemaValue,
+			writerSignature: EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue)),
+			writerAddress: writerAddress
+		},
+		{
+			type: "add-schema",
+			key: schemaKey2,
+			value: schemaValue2,
+			writerSignature: EthCrypto.sign(privateKey, db.createSignHash(schemaKey2, schemaValue2)),
+			writerAddress: writerAddress
+		}
+	];
+
+	db.batch(batchList, (err) => {
+		t.error(err, "no error");
+
+		const key = writerAddress + "/profilePicture";
+		const value = "https://upload.wikimedia.org/wikipedia/en/thumb/e/e0/Iron_Man_bleeding_edge.jpg/250px-Iron_Man_bleeding_edge.jpg";
+		const writerSignature = EthCrypto.sign(privateKey, db.createSignHash(key, value));
+		const pointerKey = "settings/profilePicture/" + writerAddress;
+		const opts = {
+			schemaKey,
+			pointerKey,
+			pointerSchemaKey: schemaKey2
+		};
+		db.put(key, value, writerSignature, writerAddress, opts, (err, node) => {
+			t.error(err, "no error");
+			db.get(key, (err, node) => {
+				t.error(err, "no error");
+				t.same(node.key, key, "same key");
+				t.same(node.value, value, "same value");
+				t.same(node.pointerKey, pointerKey, "same pointerKey");
+				t.same(node.pointer, false, "correct pointer");
+				db.get(pointerKey, (err, node) => {
+					t.error(err, "no error");
+					t.same(node.key, pointerKey, "same key");
+					t.same(node.value, key, "same value");
+					t.same(node.pointer, true, "correct pointer");
+					t.end();
+				});
+			});
+		});
+	});
 });
