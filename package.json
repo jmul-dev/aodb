@@ -40,7 +40,7 @@
 	},
 	"scripts": {
 		"protobuf": "protocol-buffers schema.proto -o lib/messages.js",
-		"test": "standard && tape test/*.js"
+		"test": "tape test/*.js"
 	},
 	"author": {
 		"name": "Johan Mulyono",
