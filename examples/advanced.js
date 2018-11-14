@@ -10,9 +10,9 @@ const db = new aodb("./my.db", {
 });
 
 /***** Add a Schema *****/
-let schemaKey = "schema/content/*/review/%writerAddress%";
+let schemaKey = "schema/content/*/review/%writerAddress%/%number%";
 let schemaValue = {
-	keySchema: "content/*/review/%writerAddress%",
+	keySchema: "content/*/review/%writerAddress%/%number%",
 	valueValidationKey: "",
 	keyValidation: ""
 };
@@ -25,7 +25,7 @@ db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
 		console.log("Add Schema:\n" + schemaKey + " --> " + JSON.stringify(node.value) + "\n");
 
 		/***** Put *****/
-		let key = "content/0x123456789/review/" + writerAddress2;
+		let key = "content/0x123456789/review/" + writerAddress2 + "/1";
 		let value = "Love the content";
 		let writerSignature2 = EthCrypto.sign(privateKey2, db.createSignHash(key, value));
 

@@ -1425,13 +1425,19 @@ const validateKeySchema = (key, keySchema, writerAddress) => {
 
 	if (splitKey.length != splitKeySchema.length) return { error: true, errorMessage: "key has incorrect space length" };
 
+	const reservedKeyNames = ["%writerAddress%", "%number%"];
+
 	for (let i = 0; i < splitKeySchema.length; i++) {
 		if (splitKeySchema[i] === "*") continue;
 		if (splitKeySchema[i] === "%writerAddress%" && splitKey[i] !== writerAddress) {
 			return { error: true, errorMessage: "key's writerAddress does not match the address" };
 		}
-		if (splitKeySchema[i] !== splitKey[i] && splitKeySchema[i] !== "%writerAddress%")
+		if (splitKeySchema[i] === "%number%" && isNaN(splitKey[i])) {
+			return { error: true, errorMessage: "key's %number% is not a number" };
+		}
+		if (splitKeySchema[i] !== splitKey[i] && reservedKeyNames.indexOf(splitKeySchema[i]) === -1) {
 			return { error: true, errorMessage: "key's space not match. key => " + splitKey[i] + ". schema => " + splitKeySchema[i] };
+		}
 	}
 	return { error: false, errorMessage: "" };
 };
@@ -1455,5 +1461,5 @@ const validateEntryValue = async (self, heads, value, valueValidationKey) => {
  * @dev helper function to exit when there is an error
  */
 const throwError = (cb, errorMessage) => {
-	return cb(new Error(errorMessage));
+	return process.nextTick(cb, new Error(errorMessage));
 };
