@@ -1367,7 +1367,7 @@ const isNullish = (v) => {
 
 const noop = () => {};
 
-const inspect = () => {
+function inspect() {
 	return (
 		`Node(key=${this.key}` +
 		`, pointerKey=${this.pointerKey}` +
@@ -1385,7 +1385,7 @@ const inspect = () => {
 		`, rootHash=${this.rootHash}` +
 		`)`
 	);
-};
+}
 
 /**
  * @dev Check whether or not the value of a schema entry is valid
