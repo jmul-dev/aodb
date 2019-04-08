@@ -30,6 +30,7 @@ const EthCrypto = require("eth-crypto");
 const validate = require("validate.js");
 const { promisify } = require("es6-promisify");
 const promisifyGet = promisify(get);
+const reservedKeyNames = ["%writerAddress%", "%number%"];
 
 class AODB {
 	constructor(storage, key, opts) {
@@ -88,6 +89,7 @@ class AODB {
 		if (!cb) cb = noop;
 
 		const self = this;
+		let _heads = null;
 
 		this._lock((release) => {
 			const clock = self._clock();
@@ -97,6 +99,8 @@ class AODB {
 
 			self.heads((err, heads) => {
 				if (err) return cb(err);
+
+				_heads = heads;
 
 				let i = 0;
 
@@ -125,20 +129,44 @@ class AODB {
 					if (next.type === "add-schema") {
 						// Validate the schema val
 						try {
-							const validation = await validateSchemaVal(self, heads, next.key, next.value);
+							const validation = await validateSchemaVal(self, _heads, next.key, next.value);
 							if (validation.error) {
 								return throwError(cb, "Error: " + validation.errorMessage);
+							} else if (!validation.wildStringSchema) {
+								return throwError(cb, "Error: missing the wildStringSchema from schema validation");
 							}
+							// Insert the wildStringSchema
+							// This is to prevent db node adding similar schema for example
+							// if schema/hello/%writerAddress% exist,
+							// schema/hello/* insertion will fail
 							put(
 								self,
 								clock,
 								heads,
+								normalizeKey(validation.wildStringSchema),
 								normalizeKey(next.key),
-								next.value,
 								next.writerSignature,
 								next.writerAddress,
-								{ isSchema: true, noUpdate: true },
-								loop
+								{ isWildStringSchema: true, noUpdate: true },
+								(err, node) => {
+									if (node) {
+										node.path = hash(node.key, true);
+										heads = [node];
+									}
+
+									// Then insert the schema
+									put(
+										self,
+										clock,
+										heads,
+										normalizeKey(next.key),
+										next.value,
+										next.writerSignature,
+										next.writerAddress,
+										{ isSchema: true, noUpdate: true },
+										loop
+									);
+								}
 							);
 						} catch (e) {
 							return throwError(cb, e);
@@ -168,7 +196,7 @@ class AODB {
 								return throwError(cb, "Error: missing the pointerSchemaKey option for this entry");
 							}
 							try {
-								let pointerSchemaKeyNode = await promisifyGet(self, heads, normalizeKey(next.pointerSchemaKey));
+								let pointerSchemaKeyNode = await promisifyGet(self, _heads, normalizeKey(next.pointerSchemaKey));
 								if (!pointerSchemaKeyNode)
 									return throwError(cb, "Error: unable to find this entry for the pointerSchemaKey");
 								if (pointerSchemaKeyNode.length) pointerSchemaKeyNode = pointerSchemaKeyNode[0];
@@ -190,7 +218,7 @@ class AODB {
 
 						// Get the schema
 						try {
-							let schemaKeyNode = await promisifyGet(self, heads, normalizeKey(next.schemaKey));
+							let schemaKeyNode = await promisifyGet(self, _heads, normalizeKey(next.schemaKey));
 							if (!schemaKeyNode) return throwError(cb, "Error: unable to find this entry for the schemaKey");
 							if (schemaKeyNode.length) schemaKeyNode = schemaKeyNode[0];
 
@@ -304,8 +332,29 @@ class AODB {
 							const validation = await validateSchemaVal(self, heads, key, val);
 							if (validation.error) {
 								return throwError(cb, "Error: " + validation.errorMessage);
+							} else if (!validation.wildStringSchema) {
+								return throwError(cb, "Error: missing the wildStringSchema from schema validation");
 							}
-							put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock);
+							// Insert the wildStringSchema
+							put(
+								self,
+								clock,
+								heads,
+								normalizeKey(validation.wildStringSchema),
+								normalizeKey(key),
+								writerSignature,
+								writerAddress,
+								{ isWildStringSchema: true, noUpdate: true },
+								(err, node) => {
+									if (err) return throwError(cb, err);
+
+									self._getHeads(false, async (err, heads) => {
+										if (err) return throwError(cb, err);
+										// Insert the schema
+										put(self, clock, heads, normalizeKey(key), val, writerSignature, writerAddress, opts, unlock);
+									});
+								}
+							);
 						} catch (e) {
 							return throwError(cb, e);
 						}
@@ -410,7 +459,7 @@ class AODB {
 	}
 
 	addSchema(key, val, writerSignature, writerAddress, cb) {
-		this.put(key, val, writerSignature, writerAddress, { isSchema: true }, cb);
+		this.put(key, val, writerSignature, writerAddress, { isSchema: true, noUpdate: true }, cb);
 	}
 
 	del(key, writerSignature, writerAddress, cb) {
@@ -1042,6 +1091,7 @@ class Writer {
 			pointer: entry.pointer,
 			noUpdate: entry.noUpdate,
 			isSchema: entry.isSchema,
+			isWildStringSchema: entry.isWildStringSchema,
 			inflate: 0,
 			clock: null,
 			trie: null,
@@ -1376,6 +1426,7 @@ function inspect() {
 		`, pointer=${this.pointer}` +
 		`, noUpdate=${this.noUpdate}` +
 		`, isSchema=${this.isSchema}` +
+		`, isWildStringSchema=${this.isWildStringSchema}` +
 		`, seq=${this.seq}` +
 		`, feed=${this.feed}` +
 		`, writerSignature=${this.writerSignature}` +
@@ -1397,22 +1448,58 @@ function inspect() {
  *		}
  */
 const validateSchemaVal = async (self, heads, key, val) => {
-	if (!key) return { error: true, errorMessage: "Missing key value" };
-	if (typeof val !== "object") return { error: true, errorMessage: "Invalid schemaValue object" };
-	if (!val.hasOwnProperty("keySchema") || !val.hasOwnProperty("valueValidationKey") || !val.hasOwnProperty("keyValidation"))
-		return { error: true, errorMessage: "val is missing keySchema / valueValidationKey / keyValidation property" };
-	if (normalizeKey(key) !== "schema/" + normalizeKey(val.keySchema))
-		return { error: true, errorMessage: "key does not have the correct schema structure" };
-	if (val.valueValidationKey) {
-		try {
-			const node = await promisifyGet(self, heads, normalizeKey(val.valueValidationKey));
-			if (!node) return { error: true, errorMessage: "Unable to find valueValidationKey entry" };
-			return { error: false, errorMessage: "" };
-		} catch (e) {
-			return { error: true, errorMessage: e };
+	const response = { error: false, errorMessage: "", wildStringSchema: "" };
+	try {
+		if (!key) {
+			response.error = true;
+			response.errorMessage = "Missing key value";
+			return response;
 		}
-	} else {
-		return { error: false, errorMessage: "" };
+		if (typeof val !== "object") {
+			response.error = true;
+			response.errorMessage = "Invalid schemaValue object";
+			return response;
+		}
+		if (!val.hasOwnProperty("keySchema") || !val.hasOwnProperty("valueValidationKey") || !val.hasOwnProperty("keyValidation")) {
+			response.error = true;
+			response.errorMessage = "val is missing keySchema / valueValidationKey / keyValidation property";
+			return response;
+		}
+		if (normalizeKey(key) !== "schema/" + normalizeKey(val.keySchema)) {
+			response.error = true;
+			response.errorMessage = "key does not have the correct schema structure";
+			return response;
+		}
+		if (val.valueValidationKey) {
+			const node = await promisifyGet(self, heads, normalizeKey(val.valueValidationKey));
+			if (!node) {
+				response.error = true;
+				response.errorMessage = "Unable to find valueValidationKey entry";
+				return response;
+			}
+		}
+		const splitKey = key.split("/");
+		const wildStringSchema = splitKey.map((subkey, index) => {
+			if (index === 0) {
+				return 'wildStringSchema';
+			}
+			if (reservedKeyNames.indexOf(subkey) >= 0) {
+				return '*';
+			}
+			return subkey;
+		}).join('/');
+		const node = await promisifyGet(self, heads, normalizeKey(wildStringSchema));
+		if (node) {
+			response.error = true;
+			response.errorMessage = "A similar schema key already exists";
+			return response;
+		}
+		response.wildStringSchema = wildStringSchema;
+		return response;
+	} catch (e) {
+		response.error = true;
+		response.errorMessage = e.message;
+		return response;
 	}
 };
 
@@ -1424,8 +1511,6 @@ const validateKeySchema = (key, keySchema, writerAddress) => {
 	const splitKeySchema = keySchema.split("/");
 
 	if (splitKey.length != splitKeySchema.length) return { error: true, errorMessage: "key has incorrect space length" };
-
-	const reservedKeyNames = ["%writerAddress%", "%number%"];
 
 	for (let i = 0; i < splitKeySchema.length; i++) {
 		if (splitKeySchema[i] === "*") continue;

@@ -7,14 +7,15 @@ message Entry {
 	optional bool pointer = 6;				// indicates whether or not this entry is a pointer to another key
 	optional bool noUpdate = 7;				// if true, no update is allowed for this entry. Not even the writerAddress of the key
 	optional bool isSchema = 8;				// indicates whether or not this entry defines a key schema
-	required bytes trie = 9;
-	repeated uint64 clock = 10;
-	optional uint64 inflate = 11;
-	required string writerSignature = 12;	// the write signature for this entry
-	required string writerAddress = 13;		// the writer's public key
-	optional string proofSignature = 14;
-	optional bytes proofPayload = 15;
-	optional string rootHash = 16;
+	optional bool isWildStringSchema = 9;	// indicates whether or not this entry defines a wildstring schema
+	required bytes trie = 10;
+	repeated uint64 clock = 11;
+	optional uint64 inflate = 12;
+	required string writerSignature = 13;	// the write signature for this entry
+	required string writerAddress = 14;		// the writer's public key
+	optional string proofSignature = 15;
+	optional bytes proofPayload = 16;
+	optional string rootHash = 17;
 }
 
 message InflatedEntry {
@@ -30,16 +31,17 @@ message InflatedEntry {
 	optional bool pointer = 6;				// indicates whether or not this entry is a pointer to another key
 	optional bool noUpdate = 7;				// if true, no update is allowed for this entry. Not even the writerAddress of the key
 	optional bool isSchema = 8;				// indicates whether or not this entry defines a key schema
-	required bytes trie = 9;
-	repeated uint64 clock = 10;
-	optional uint64 inflate = 11;
-	required string writerSignature = 12;	// the write signature for this entry
-	required string writerAddress = 13;		// the writer's public key
-	optional string proofSignature = 14;
-	optional bytes proofPayload = 15;
-	optional string rootHash = 16;
-	repeated Feed feeds = 17;
-	optional bytes contentFeed = 18;
+	optional bool isWildStringSchema = 9;	// indicates whether or not this entry defines a wildstring schema
+	required bytes trie = 10;
+	repeated uint64 clock = 11;
+	optional uint64 inflate = 12;
+	required string writerSignature = 13;	// the write signature for this entry
+	required string writerAddress = 14;		// the writer's public key
+	optional string proofSignature = 15;
+	optional bytes proofPayload = 16;
+	optional string rootHash = 17;
+	repeated Feed feeds = 18;
+	optional bytes contentFeed = 19;
 }
 
 message Header {
