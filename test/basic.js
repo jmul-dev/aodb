@@ -1222,7 +1222,7 @@ tape("can put/get a null value", (t) => {
 	});
 });
 
-tape("does not reinsert if isNotExists is true in put", (t) => {
+tape("does not reinsert if ifNotExists is true in put", (t) => {
 	t.plan(5);
 
 	const db = create.one(null, { valueEncoding: "json" });
