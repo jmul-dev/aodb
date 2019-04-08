@@ -177,23 +177,13 @@ tape("basic addSchema", (t) => {
 	let writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue));
 	db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
 		t.error(err);
-
-		const schemaValue2 = {
-			keySchema: "hello",
-			valueValidationKey: "",
-			keyValidation: "somekeyvalidation"
-		};
-		writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue2));
-		db.addSchema(schemaKey, schemaValue2, writerSignature, writerAddress, (err) => {
-			t.error(err);
-			db.get(schemaKey, (err, node) => {
-				t.error(err, "no error");
-				t.same(node.key, schemaKey, "same key");
-				t.same(node.value, schemaValue, "same value");
-				t.same(node.isSchema, true);
-				t.same(node.noUpdate, true);
-				t.end();
-			});
+		db.get(schemaKey, (err, node) => {
+			t.error(err, "no error");
+			t.same(node.key, schemaKey, "same key");
+			t.same(node.value, schemaValue, "same value");
+			t.same(node.isSchema, true);
+			t.same(node.noUpdate, true);
+			t.end();
 		});
 	});
 });
@@ -1148,7 +1138,7 @@ tape("create with precreated keypair", (t) => {
 });
 
 tape("can insert falsy values", (t) => {
-	t.plan(1 + 2 * 2 + 4 + 1);
+	t.plan(1 + 2 * 2 + 4 + 2);
 
 	const db = create.one(null, { valueEncoding: "json" });
 	const schemaKey = "schema/*";
@@ -1157,6 +1147,7 @@ tape("can insert falsy values", (t) => {
 		valueValidationKey: "",
 		keyValidation: ""
 	};
+	const wildStringSchema = "wildStringSchema/*";
 	const writerSignature = EthCrypto.sign(privateKey, db.createSignHash(schemaKey, schemaValue));
 	db.addSchema(schemaKey, schemaValue, writerSignature, writerAddress, (err) => {
 		t.error(err, "no error");
@@ -1188,7 +1179,7 @@ tape("can insert falsy values", (t) => {
 						return;
 					}
 
-					if (node.key !== schemaKey) result[node.key] = node.value;
+					if (node.key !== schemaKey && node.key !== wildStringSchema) result[node.key] = node.value;
 					ite.next(loop);
 				});
 			});

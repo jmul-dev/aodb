@@ -164,7 +164,7 @@ const testIteratorOrder = (t, iterator, expected, sortFunc, done) => {
 	const onEach = (err, node) => {
 		t.error(err, "no error");
 		if (node.length) node = node[0];
-		if (!node.isSchema) {
+		if (!node.isSchema && !node.isWildStringSchema) {
 			const key = node.key;
 			const expectedNode = sorted.shift();
 			t.same(key, expectedNode.key);
@@ -221,7 +221,7 @@ Object.keys(cases).forEach((key) => {
 });
 
 tape("fully visit a folder before visiting the next one", (t) => {
-	t.plan(15);
+	t.plan(19);
 	const db = create.one();
 	const batchList = [
 		{
@@ -268,10 +268,8 @@ tape("fully visit a folder before visiting the next one", (t) => {
 				ite.next(function loop(err, val) {
 					t.error(err, "no error");
 					if (!val) return t.end();
-					if (val.isSchema) {
-						ite.next((err, val) => {
-							ite.next(loop);
-						});
+					if (val.isSchema || val.isWildStringSchema) {
+						ite.next(loop);
 					}
 					if (val.key[0] === "b") {
 						t.same(val.key, "b/c");

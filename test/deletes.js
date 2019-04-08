@@ -104,7 +104,7 @@ tape("delete one in many (iteration)", (t) => {
 					return;
 				}
 
-				if (!node.isSchema) actual.push(node.value);
+				if (!node.isSchema && !node.isWildStringSchema) actual.push(node.value);
 				ite.next(loop);
 			});
 		};
@@ -134,7 +134,7 @@ tape("delete marks node as deleted", (t) => {
 			db.del("hello", EthCrypto.sign(privateKey, db.createSignHash("hello", "")), writerAddress, (err) => {
 				db.createHistoryStream()
 					.on("data", (data) => {
-						if (!data.isSchema) t.same({ key: data.key, value: data.value, deleted: data.deleted }, expected.shift());
+						if (!data.isSchema && !data.isWildStringSchema) t.same({ key: data.key, value: data.value, deleted: data.deleted }, expected.shift());
 					})
 					.on("end", () => {
 						t.same(expected.length, 0);

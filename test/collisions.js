@@ -58,6 +58,10 @@ tape("two keys with same siphash (iterator)", (t) => {
 				});
 				ite.next((err, node) => {
 					t.error(err, "no error");
+					t.same(node.value, schemaKey);
+				});
+				ite.next((err, node) => {
+					t.error(err, "no error");
 					t.same(node.value, schemaValue);
 				});
 				ite.next((err, node) => {

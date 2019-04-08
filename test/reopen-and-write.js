@@ -78,7 +78,7 @@ tape("3 writers, re-open and write, re-open again", (t) => {
 							};
 
 							const testInflateValue = (cb) => {
-								t.equals(reopened.source.length, 6, "correct length");
+								t.equals(reopened.source.length, 7, "correct length");
 								reopened.source.get(4, (err, data) => {
 									t.error(err, "no error");
 									var val = messages.Entry.decode(data);

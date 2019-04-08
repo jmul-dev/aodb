@@ -35,7 +35,7 @@ const all = (ite, cb) => {
 	ite.next(function loop(err, node) {
 		if (err) return cb(err);
 		if (!node) return cb(null, vals);
-		if (node.isSchema) {
+		if (node.isSchema || node.isWildStringSchema) {
 			ite.next(loop);
 		} else {
 			const key = Array.isArray(node) ? node[0].key : node.key;
@@ -373,14 +373,18 @@ tape("two writers, simple fork", (t) => {
 				const ondb2all = (err, map) => {
 					t.error(err, "no error");
 					delete map["schema/*"];
+					delete map["wildStringSchema/*"];
 					delete map["schema/*/*"];
+					delete map["wildStringSchema/*/*"];
 					t.same(map, { "0": ["0"], "1": ["1a", "1b"], "10": ["10"] });
 				};
 
 				const ondb1all = (err, map) => {
 					t.error(err, "no error");
 					delete map["schema/*"];
+					delete map["wildStringSchema/*"];
 					delete map["schema/*/*"];
+					delete map["wildStringSchema/*/*"];
 					t.same(map, { "0": ["0"], "1": ["1a", "1b"], "10": ["10"], "2": ["2"], "1/0": ["1/0"] });
 				};
 
@@ -431,6 +435,7 @@ tape("two writers, one fork", (t) => {
 							all(db1.iterator(), (err, vals) => {
 								t.error(err, "no error");
 								delete vals["schema/*"];
+								delete vals["wildStringSchema/*"];
 								t.same(vals, {
 									"0": ["00"],
 									"1": ["1a", "1b"],
@@ -447,6 +452,7 @@ tape("two writers, one fork", (t) => {
 								all(db2.iterator(), (err, vals) => {
 									t.error(err, "no error");
 									delete vals["schema/*"];
+									delete vals["wildStringSchema/*"];
 									t.same(vals, {
 										"0": ["00"],
 										"1": ["1a", "1b"],
@@ -637,10 +643,12 @@ tape("two writers, one fork, many values", (t) => {
 							all(db1.iterator(), (err, vals) => {
 								t.error(err, "no error");
 								delete vals["schema/*"];
+								delete vals["wildStringSchema/*"];
 								t.same(vals, expected);
 								all(db2.iterator(), (err, vals) => {
 									t.error(err, "no error");
 									delete vals["schema/*"];
+									delete vals["wildStringSchema/*"];
 									t.same(vals, expected);
 									t.end();
 								});
@@ -791,6 +799,7 @@ tape("two writers, fork", (t) => {
 						const onall = (err, map) => {
 							t.error(err, "no error");
 							delete map["schema/*"];
+							delete map["wildStringSchema/*"];
 							t.same(map, { b: ["c"], a: ["b"] });
 						};
 
@@ -841,6 +850,7 @@ tape("three writers, two forks", (t) => {
 								const onall = (err, map) => {
 									t.error(err, "no error");
 									delete map["schema/*"];
+									delete map["wildStringSchema/*"];
 									t.same(map, { a: ["ab"], c: ["c"], some: ["some"] });
 								};
 
@@ -926,7 +936,7 @@ tape("list buffers an iterator", (t) => {
 			t.error(err, "no error");
 			db.list((err, all) => {
 				t.error(err, "no error");
-				t.same(all.map((v) => v.key).sort(), ["a", "b", "b/c", "schema/*", "schema/*/*"]);
+				t.same(all.map((v) => v.key).sort(), ["a", "b", "b/c", "schema/*", "schema/*/*", "wildStringSchema/*", "wildStringSchema/*/*" ]);
 				db.list("b", { gt: true }, (err, all) => {
 					t.error(err, "no error");
 					t.same(all.length, 1);
@@ -947,6 +957,7 @@ tape("options to get deleted keys", (t) => {
 			all(db.iterator({ deletes: true }), (err, map) => {
 				t.error(err, "no error");
 				delete map["schema/*"];
+				delete map["wildStringSchema/*"];
 				t.same(map, { a: "", b: "b", c: "c" }, "iterated all values");
 				t.end();
 			});
@@ -988,6 +999,7 @@ tape("three writers, two forks with deletes", (t) => {
 								const onall = (err, map) => {
 									t.error(err, "no error");
 									delete map["schema/*"];
+									delete map["wildStringSchema/*"];
 									t.same(map, { a: ["", "ab"], c: [""], some: [""] });
 								};
 

@@ -19,6 +19,7 @@ const schemaValue = {
 	valueValidationKey: "",
 	keyValidation: ""
 };
+const wildStringSchema = "wildStringSchema/*";
 
 const schemaKey2 = "schema/*/*";
 const schemaValue2 = {
@@ -26,6 +27,7 @@ const schemaValue2 = {
 	valueValidationKey: "",
 	keyValidation: ""
 };
+const wildStringSchema2 = "wildStringSchema/*/*";
 
 const schemaKey3 = "schema/*/*/*";
 const schemaValue3 = {
@@ -33,6 +35,7 @@ const schemaValue3 = {
 	valueValidationKey: "",
 	keyValidation: ""
 };
+const wildStringSchema3 = "wildStringSchema/*/*/*";
 
 tape("basic readStream", { timeout: 1000 }, (t) => {
 	const db = create.one();
@@ -280,7 +283,7 @@ tape("readStream with two feeds (again)", { timeout: 1000 }, (t) => {
 							const reader = b.createReadStream("/");
 							const expected = ["b/a", "b/b", "b/c", "a/a", "a/b", "a/c"];
 							reader.on("data", (data) => {
-								if (data[0].key !== schemaKey2) {
+								if (data[0].key !== schemaKey2 && data[0].key !== wildStringSchema2) {
 									t.equals(data.length, 1);
 									const index = expected.indexOf(data[0].key);
 									t.ok(index !== -1, "key is expected");
@@ -358,7 +361,7 @@ tape("readStream with conflicting feeds", { timeout: 2000 }, (t) => {
 							const expected = ["a/a", "a/b", "a/c", "b/a", "b/b", "b/c", "c/b", "c/c", "c/a", "c/d"];
 							const reader = a.createReadStream("/");
 							reader.on("data", (data) => {
-								if (data[0].key !== schemaKey2) {
+								if (data[0].key !== schemaKey2 && data[0].key !== wildStringSchema2) {
 									let isConflicting = false;
 									for (let i = 0; i < conflictingKeysValues.length; i++) {
 										if (data[0].key === conflictingKeysValues[i].key) {

@@ -33,9 +33,9 @@ tape("single value", (t) => {
 			const rs = db.createHistoryStream();
 			collect(rs, (err, actual) => {
 				t.error(err, "no error");
-				t.equals(actual.length, 2);
-				t.equals(actual[1].key, "a");
-				t.equals(actual[1].value, "2");
+				t.equals(actual.length, 3);
+				t.equals(actual[2].key, "a");
+				t.equals(actual[2].value, "2");
 				t.end();
 			});
 		});
@@ -90,11 +90,11 @@ tape("multiple values", (t) => {
 					const rs = db.createHistoryStream();
 					collect(rs, (err, actual) => {
 						t.error(err, "no error");
-						t.equals(actual.length, 4);
-						t.equals(actual[2].key, "a");
-						t.equals(actual[2].value, "2");
-						t.equals(actual[3].key, "b/0");
-						t.equals(actual[3].value, "boop");
+						t.equals(actual.length,6);
+						t.equals(actual[4].key, "a");
+						t.equals(actual[4].value, "2");
+						t.equals(actual[5].key, "b/0");
+						t.equals(actual[5].value, "boop");
 						t.end();
 					});
 				}
@@ -120,11 +120,11 @@ tape("multiple values: same key", (t) => {
 				const rs = db.createHistoryStream();
 				collect(rs, (err, actual) => {
 					t.error(err, "no error");
-					t.equals(actual.length, 3);
-					t.equals(actual[1].key, "a");
-					t.equals(actual[1].value, "2");
+					t.equals(actual.length, 4);
 					t.equals(actual[2].key, "a");
-					t.equals(actual[2].value, "boop");
+					t.equals(actual[2].value, "2");
+					t.equals(actual[3].key, "a");
+					t.equals(actual[3].value, "boop");
 					t.end();
 				});
 			});
@@ -148,13 +148,13 @@ tape("2 feeds", (t) => {
 
 			collect(rs, (err, actual) => {
 				t.error(err, "no error");
-				t.equals(actual.length, 5);
+				t.equals(actual.length, 7);
 				t.equals(actual[0].feed, ai);
 				t.equals(actual[0].seq, 1);
-				t.equals(actual[2].feed, ai);
-				t.equals(actual[2].seq, 3);
-				t.equals(actual[4].feed, bi);
-				t.equals(actual[4].seq, 2);
+				t.equals(actual[3].feed, ai);
+				t.equals(actual[3].seq, 4);
+				t.equals(actual[6].feed, bi);
+				t.equals(actual[6].seq, 3);
 				t.end();
 			});
 		};
@@ -195,13 +195,13 @@ tape("reverse", (t) => {
 
 			collect(rs, (err, actual) => {
 				t.error(err, "no error");
-				t.equals(actual.length, 5);
+				t.equals(actual.length, 7);
 				t.equals(actual[0].feed, bi);
-				t.equals(actual[0].seq, 2);
-				t.equals(actual[2].feed, ai);
-				t.equals(actual[2].seq, 3);
-				t.equals(actual[4].feed, ai);
-				t.equals(actual[4].seq, 1);
+				t.equals(actual[0].seq, 3);
+				t.equals(actual[3].feed, ai);
+				t.equals(actual[3].seq, 4);
+				t.equals(actual[6].feed, ai);
+				t.equals(actual[6].seq, 1);
 				t.end();
 			});
 		};

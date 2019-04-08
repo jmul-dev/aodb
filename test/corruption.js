@@ -30,7 +30,7 @@ tape("feed with corrupted inflate generates error", (t) => {
 			};
 
 			const corruptInflateRecord = (cb) => {
-				const index = 4;
+				const index = 5;
 				a.source.get(index, (err, data) => {
 					t.error(err, "no error");
 					const val = messages.Entry.decode(data);
