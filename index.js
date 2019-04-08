@@ -197,7 +197,7 @@ class AODB {
 							}
 							try {
 								let pointerSchemaKeyNode = await promisifyGet(self, _heads, normalizeKey(next.pointerSchemaKey));
-								if (!pointerSchemaKeyNode)
+								if (!nodeExist(pointerSchemaKeyNode))
 									return throwError(cb, "Error: unable to find this entry for the pointerSchemaKey");
 								if (pointerSchemaKeyNode.length) pointerSchemaKeyNode = pointerSchemaKeyNode[0];
 
@@ -219,7 +219,7 @@ class AODB {
 						// Get the schema
 						try {
 							let schemaKeyNode = await promisifyGet(self, _heads, normalizeKey(next.schemaKey));
-							if (!schemaKeyNode) return throwError(cb, "Error: unable to find this entry for the schemaKey");
+							if (!nodeExist(schemaKeyNode)) return throwError(cb, "Error: unable to find this entry for the schemaKey");
 							if (schemaKeyNode.length) schemaKeyNode = schemaKeyNode[0];
 
 							// Validate the key
@@ -375,7 +375,7 @@ class AODB {
 							}
 							try {
 								let pointerSchemaKeyNode = await promisifyGet(self, heads, normalizeKey(opts.pointerSchemaKey));
-								if (!pointerSchemaKeyNode)
+								if (!nodeExist(pointerSchemaKeyNode))
 									return throwError(cb, "Error: unable to find this entry for the pointerSchemaKey");
 								if (pointerSchemaKeyNode.length) pointerSchemaKeyNode = pointerSchemaKeyNode[0];
 
@@ -397,7 +397,7 @@ class AODB {
 						// Get the schema
 						try {
 							let schemaKeyNode = await promisifyGet(self, heads, normalizeKey(opts.schemaKey));
-							if (!schemaKeyNode) return throwError(cb, "Error: unable to find this entry for the schemaKey");
+							if (!nodeExist(schemaKeyNode)) return throwError(cb, "Error: unable to find this entry for the schemaKey");
 							if (schemaKeyNode.length) schemaKeyNode = schemaKeyNode[0];
 
 							// Validate the key
@@ -1472,7 +1472,7 @@ const validateSchemaVal = async (self, heads, key, val) => {
 		}
 		if (val.valueValidationKey) {
 			const node = await promisifyGet(self, heads, normalizeKey(val.valueValidationKey));
-			if (!node) {
+			if (!nodeExist(node)) {
 				response.error = true;
 				response.errorMessage = "Unable to find valueValidationKey entry";
 				return response;
@@ -1489,7 +1489,7 @@ const validateSchemaVal = async (self, heads, key, val) => {
 			return subkey;
 		}).join('/');
 		const node = await promisifyGet(self, heads, normalizeKey(wildStringSchema));
-		if (node) {
+		if (nodeExist(node)) {
 			response.error = true;
 			response.errorMessage = "A similar schema key already exists";
 			return response;
@@ -1533,7 +1533,7 @@ const validateKeySchema = (key, keySchema, writerAddress) => {
 const validateEntryValue = async (self, heads, value, valueValidationKey) => {
 	try {
 		let node = await promisifyGet(self, heads, normalizeKey(valueValidationKey));
-		if (!node) return { error: true, errorMessage: "Unable to find valueValidationKey entry" };
+		if (!nodeExist(node)) return { error: true, errorMessage: "Unable to find valueValidationKey entry" };
 		if (node.length) node = node[0];
 		const { error, errorMessage } = self[node.value](value);
 		return { error, errorMessage };
@@ -1547,4 +1547,8 @@ const validateEntryValue = async (self, heads, value, valueValidationKey) => {
  */
 const throwError = (cb, errorMessage) => {
 	return process.nextTick(cb, new Error(errorMessage));
+};
+
+const nodeExist = (node) => {
+	return (!Array.isArray(node) && node) || (Array.isArray(node) && node.length);
 };
