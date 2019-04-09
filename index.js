@@ -149,6 +149,8 @@ class AODB {
 								next.writerAddress,
 								{ isWildStringSchema: true, noUpdate: true },
 								(err, node) => {
+									if (err) return throwError(cb, err);
+
 									if (node) {
 										node.path = hash(node.key, true);
 										heads = [node];
@@ -252,6 +254,8 @@ class AODB {
 								next.writerAddress,
 								{ schemaKey: next.pointerSchemaKey, pointer: true },
 								(err, node) => {
+									if (err) return throwError(cb, err);
+
 									if (node) {
 										node.path = hash(node.key, true);
 										heads = [node];
@@ -430,6 +434,8 @@ class AODB {
 								writerAddress,
 								{ schemaKey: opts.pointerSchemaKey, pointer: true },
 								(err, node) => {
+									if (err) return throwError(cb, err);
+
 									self._getHeads(false, async (err, heads) => {
 										if (err) return throwError(cb, err);
 										// Insert the key
