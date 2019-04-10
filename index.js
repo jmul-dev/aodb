@@ -992,6 +992,7 @@ class AODB {
 
 	createSignHash(key, val) {
 		if (val === null) val = "";
+		if (typeof val === 'object' && val !== null) val = JSON.stringify(val);
 		const signData = [
 			{
 				// prefix
